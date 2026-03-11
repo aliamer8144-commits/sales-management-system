@@ -293,3 +293,65 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
   }
 }
+
+// DELETE all purchase invoices (danger zone)
+export async function DELETE() {
+  try {
+    // Get all invoice items first to deduct stock
+    const itemsResult = await db.execute({
+      sql: `SELECT pii.* FROM PurchaseInvoiceItem pii
+            INNER JOIN PurchaseInvoice pi ON pii.purchaseInvoiceId = pi.id`,
+    });
+
+    // Group items by product
+    const itemsByProduct = new Map<string, { productUnitId: string; quantity: number }[]>();
+    
+    for (const item of itemsResult.rows) {
+      const productId = item.productId as string;
+      if (!itemsByProduct.has(productId)) {
+        itemsByProduct.set(productId, []);
+      }
+      itemsByProduct.get(productId)!.push({
+        productUnitId: item.productUnitId as string,
+        quantity: item.quantity as number,
+      });
+    }
+
+    // Deduct stock for each product (reverse of purchase)
+    for (const [productId, items] of itemsByProduct) {
+      const units = await getProductUnits(productId);
+      const totalPieces = convertToPieces(units);
+      
+      // Calculate pieces to deduct
+      let piecesToDeduct = 0;
+      for (const item of items) {
+        const unit = units.find(u => u.id === item.productUnitId);
+        if (unit) {
+          piecesToDeduct += item.quantity * (unit.containsPieces as number);
+        }
+      }
+      
+      // Calculate new stock (deduct instead of add)
+      const newTotalPieces = Math.max(0, totalPieces - piecesToDeduct);
+      const newStock = convertFromPieces(newTotalPieces, units);
+      
+      // Update all units
+      await updateProductStock(productId, newStock);
+    }
+
+    // Delete all invoice items
+    await db.execute({
+      sql: `DELETE FROM PurchaseInvoiceItem`,
+    });
+
+    // Delete all invoices
+    await db.execute({
+      sql: `DELETE FROM PurchaseInvoice`,
+    });
+
+    return NextResponse.json({ success: true, message: 'تم حذف جميع فواتير المشتريات' });
+  } catch (error) {
+    console.error('Delete purchase invoices error:', error);
+    return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
+  }
+}

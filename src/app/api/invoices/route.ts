@@ -15,6 +15,18 @@ interface ProductUnitRow {
   stockQuantity: number;
 }
 
+interface InvoiceItemRow {
+  id: string;
+  invoiceId: string;
+  productId: string;
+  productUnitId: string;
+  quantity: number;
+  salePrice: number;
+  purchasePrice: number;
+  unitType: string;
+  unitName: string;
+}
+
 // Convert all stock to pieces for calculation
 function convertToPieces(units: ProductUnitRow[]): number {
   let totalPieces = 0;
@@ -353,6 +365,69 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Create invoice error:', error);
+    return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
+  }
+}
+
+// DELETE all sales invoices (danger zone)
+export async function DELETE() {
+  try {
+    // Get all invoice items first to restore stock
+    const itemsResult = await db.execute({
+      sql: `SELECT ii.* FROM InvoiceItem ii
+            INNER JOIN Invoice i ON ii.invoiceId = i.id
+            WHERE i.invoiceType = 'cash' OR i.invoiceType = 'credit'`,
+    });
+
+    // Group items by product
+    const itemsByProduct = new Map<string, { productUnitId: string; quantity: number }[]>();
+    
+    for (const item of itemsResult.rows) {
+      const productId = item.productId as string;
+      if (!itemsByProduct.has(productId)) {
+        itemsByProduct.set(productId, []);
+      }
+      itemsByProduct.get(productId)!.push({
+        productUnitId: item.productUnitId as string,
+        quantity: item.quantity as number,
+      });
+    }
+
+    // Restore stock for each product
+    for (const [productId, items] of itemsByProduct) {
+      const units = await getProductUnits(productId);
+      const totalPieces = convertToPieces(units);
+      
+      // Calculate pieces to restore
+      let piecesToRestore = 0;
+      for (const item of items) {
+        const unit = units.find(u => u.id === item.productUnitId);
+        if (unit) {
+          piecesToRestore += item.quantity * (unit.containsPieces as number);
+        }
+      }
+      
+      // Calculate new stock
+      const newTotalPieces = totalPieces + piecesToRestore;
+      const newStock = convertFromPieces(newTotalPieces, units);
+      
+      // Update all units
+      await updateProductStock(productId, newStock);
+    }
+
+    // Delete all invoice items
+    await db.execute({
+      sql: `DELETE FROM InvoiceItem WHERE invoiceId IN (SELECT id FROM Invoice WHERE invoiceType IN ('cash', 'credit'))`,
+    });
+
+    // Delete all invoices
+    await db.execute({
+      sql: `DELETE FROM Invoice WHERE invoiceType IN ('cash', 'credit')`,
+    });
+
+    return NextResponse.json({ success: true, message: 'تم حذف جميع فواتير المبيعات' });
+  } catch (error) {
+    console.error('Delete invoices error:', error);
     return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
   }
 }
