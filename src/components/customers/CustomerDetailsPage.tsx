@@ -13,9 +13,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowRight,
   Loader2,
-  Plus,
   User,
   Phone,
   FileText,
@@ -26,6 +35,8 @@ import {
   CreditCard,
   Banknote,
   X,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
@@ -97,6 +108,8 @@ export function CustomerDetailsPage({
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,6 +182,35 @@ export function CustomerDetailsPage({
     setEndDate('');
   };
 
+  const handleDeleteCustomer = async () => {
+    if (statement?.summary.balance && statement.summary.balance > 0) {
+      toast({ 
+        title: 'لا يمكن الحذف', 
+        description: 'العميل لديه رصيد مستحق. يجب تسوية الحساب أولاً.',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({ title: 'تم الحذف', description: 'تم حذف العميل بنجاح' });
+        onBack();
+      } else {
+        const error = await response.json();
+        toast({ title: 'خطأ', description: error.error, variant: 'destructive' });
+      }
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -206,6 +248,12 @@ export function CustomerDetailsPage({
               </p>
             )}
           </div>
+          <button 
+            onClick={() => setShowDeleteDialog(true)}
+            className="p-2 hover:bg-red-500/50 rounded-full transition-colors"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
             <User className="h-6 w-6" />
           </div>
@@ -424,6 +472,55 @@ export function CustomerDetailsPage({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-6 w-6" />
+              تأكيد حذف العميل
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="font-bold text-red-700 mb-2">
+                  هل أنت متأكد من حذف هذا العميل؟
+                </p>
+                <p className="text-sm text-red-600">
+                  سيتم حذف جميع البيانات المتعلقة بهذا العميل بما في ذلك:
+                </p>
+                <ul className="text-sm text-red-600 mt-2 mr-4 list-disc">
+                  <li>{statement.summary.invoicesCount} فاتورة آجلة</li>
+                  <li>{statement.summary.paymentsCount} عملية قبض</li>
+                </ul>
+              </div>
+              <p className="text-sm text-gray-500 font-medium">
+                ⚠️ هذا الإجراء لا يمكن التراجع عنه!
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="h-11">إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCustomer}
+              disabled={isDeleting}
+              className="h-11 bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الحذف...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 ml-2" />
+                  نعم، احذف
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
