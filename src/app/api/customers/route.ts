@@ -9,8 +9,7 @@ export async function GET(request: NextRequest) {
     
     let sql = `
       SELECT c.*, 
-        COALESCE(SUM(i.totalAmount), 0) as totalDebt,
-        COUNT(i.id) as totalInvoices
+        COALESCE(SUM(i.totalAmount), 0) as totalDebt
       FROM Customer c
       LEFT JOIN Invoice i ON c.id = i.customerId AND i.invoiceType = 'credit'
     `;
@@ -25,16 +24,30 @@ export async function GET(request: NextRequest) {
     
     const result = await db.execute({ sql, args });
     
-    return NextResponse.json(result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      phone: row.phone,
-      notes: row.notes,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      totalDebt: row.totalDebt || 0,
-      totalInvoices: row.totalInvoices || 0,
-    })));
+    // Get payments for each customer
+    const customersWithBalance = await Promise.all(result.rows.map(async (row) => {
+      const paymentsResult = await db.execute({
+        sql: 'SELECT COALESCE(SUM(amount), 0) as totalPaid FROM Payment WHERE customerId = ?',
+        args: [row.id as string],
+      });
+      const totalPaid = paymentsResult.rows[0]?.totalPaid || 0;
+      const totalDebt = row.totalDebt || 0;
+      const balance = Number(totalDebt) - Number(totalPaid);
+      
+      return {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        notes: row.notes,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        totalDebt: Number(totalDebt),
+        totalPaid: Number(totalPaid),
+        balance: balance,
+      };
+    }));
+    
+    return NextResponse.json(customersWithBalance);
   } catch (error) {
     console.error('Get customers error:', error);
     return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });

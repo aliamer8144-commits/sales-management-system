@@ -174,6 +174,33 @@ export async function POST() {
       // الأعمدة موجودة مسبقاً
     }
     
+    // إنشاء جدول المدفوعات إذا لم يكن موجوداً
+    const paymentTableCheck = await db.execute(`
+      SELECT name FROM sqlite_master WHERE type='table' AND name='Payment'
+    `);
+    
+    if (paymentTableCheck.rows.length === 0) {
+      console.log('📦 إنشاء جدول المدفوعات...');
+      
+      await db.execute(`
+        CREATE TABLE Payment (
+          id TEXT PRIMARY KEY,
+          customerId TEXT NOT NULL,
+          amount REAL NOT NULL,
+          paymentMethod TEXT DEFAULT 'cash',
+          notes TEXT,
+          userId TEXT NOT NULL,
+          createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (customerId) REFERENCES Customer(id) ON DELETE CASCADE,
+          FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
+        )
+      `);
+      
+      await db.execute(`CREATE INDEX IF NOT EXISTS idx_payment_customer ON Payment(customerId)`);
+      await db.execute(`CREATE INDEX IF NOT EXISTS idx_payment_user ON Payment(userId)`);
+      console.log('✅ تم إنشاء جدول المدفوعات');
+    }
+    
     // إنشاء حساب المدير
     const adminCheck = await db.execute({
       sql: 'SELECT id FROM User WHERE email = ?',

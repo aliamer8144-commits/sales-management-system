@@ -6,15 +6,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Plus } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  User,
+  Phone,
+  DollarSign,
+  ChevronLeft,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import type { Customer } from '@/types';
+import { CustomerDetailsPage } from './CustomerDetailsPage';
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string | null;
+  notes: string | null;
+  totalDebt: number;
+  totalPaid: number;
+  balance: number;
+}
+
+// Format currency
+const formatCurrency = (amount: number) => {
+  if (amount === 0) return '0 ﷼';
+  return new Intl.NumberFormat('ar-SA', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount) + ' ﷼';
+};
 
 export function CustomersManagement() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', notes: '' });
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -41,6 +70,19 @@ export function CustomersManagement() {
     setFormData({ name: '', phone: '', notes: '' });
     fetchCustomers();
   };
+
+  // Show customer details if selected
+  if (selectedCustomerId) {
+    return (
+      <CustomerDetailsPage
+        customerId={selectedCustomerId}
+        onBack={() => {
+          setSelectedCustomerId(null);
+          fetchCustomers();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="p-4 pb-24">
@@ -117,10 +159,53 @@ export function CustomersManagement() {
       ) : (
         <div className="space-y-3">
           {customers.map((customer) => (
-            <Card key={customer.id} className="shadow-sm">
+            <Card 
+              key={customer.id} 
+              className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setSelectedCustomerId(customer.id)}
+            >
               <CardContent className="p-4">
-                <h3 className="font-semibold">{customer.name}</h3>
-                {customer.phone && <p className="text-sm text-gray-500">{customer.phone}</p>}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                      <User className="h-5 w-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{customer.name}</h3>
+                      {customer.phone && (
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {customer.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-left">
+                      <p className={`text-sm font-bold ${customer.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatCurrency(customer.balance)}
+                      </p>
+                      {customer.balance > 0 && (
+                        <p className="text-xs text-gray-400">مستحق</p>
+                      )}
+                    </div>
+                    <ChevronLeft className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+                
+                {/* Balance Summary */}
+                {(customer.totalDebt > 0 || customer.totalPaid > 0) && (
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <TrendingUp className="h-3 w-3 text-red-500" />
+                      دين: {formatCurrency(customer.totalDebt)}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <TrendingDown className="h-3 w-3 text-green-500" />
+                      مدفوع: {formatCurrency(customer.totalPaid)}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

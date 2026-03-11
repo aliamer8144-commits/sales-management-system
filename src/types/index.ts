@@ -22,6 +22,9 @@ export interface Customer {
   name: string;
   phone: string | null;
   notes: string | null;
+  totalDebt?: number;
+  totalPaid?: number;
+  balance?: number;
 }
 
 // Invoice Types
