@@ -9,8 +9,8 @@ import { Loader2, Plus, Settings } from 'lucide-react';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { LoadingScreen } from '@/components/shared/LoadingScreen';
 import { BottomNav } from '@/components/shared/BottomNav';
-import { StatCard } from '@/components/shared/StatCard';
 import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
+import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { ProductsManagement } from '@/components/products/ProductsManagement';
 import { CustomersManagement } from '@/components/customers/CustomersManagement';
 import { InvoicesList } from '@/components/invoices/InvoicesList';
@@ -49,7 +49,7 @@ export default function App() {
     checkAuth().then(() => setInitialized(true));
   }, [checkAuth]);
 
-  const getDefaultView = useCallback(() => (user?.role === 'admin' ? 'dashboard' : 'new-invoice'), [user?.role]);
+  const getDefaultView = useCallback(() => (user?.role === 'admin' ? 'dashboard' : 'user-dashboard'), [user?.role]);
   const currentDisplayView = currentView || (isAuthenticated ? getDefaultView() : '');
 
   const handleLogout = async () => {
@@ -62,12 +62,14 @@ export default function App() {
   if (!isAuthenticated) return <LoginPage />;
 
   const isAdmin = user?.role === 'admin';
-  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings'].includes(currentDisplayView);
+  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard'].includes(currentDisplayView);
 
   const renderContent = () => {
     switch (currentDisplayView) {
       case 'dashboard':
         return <AdminDashboard setCurrentView={setCurrentView} />;
+      case 'user-dashboard':
+        return <UserDashboard setCurrentView={setCurrentView} />;
       case 'products':
         return <ProductsManagement />;
       case 'invoices':
@@ -79,13 +81,13 @@ export default function App() {
       case 'new-purchase-invoice':
         return <CreatePurchaseInvoicePage />;
       case 'customers':
-        return <CustomersManagement />;
+        return <CustomersManagement isAdmin={isAdmin} />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
         return <SettingsPage onLogout={handleLogout} />;
       default:
-        return isAdmin ? <AdminDashboard setCurrentView={setCurrentView} /> : <CreateInvoicePage />;
+        return isAdmin ? <AdminDashboard setCurrentView={setCurrentView} /> : <UserDashboard setCurrentView={setCurrentView} />;
     }
   };
 
@@ -93,12 +95,14 @@ export default function App() {
     switch (currentDisplayView) {
       case 'dashboard':
         return 'لوحة التحكم';
+      case 'user-dashboard':
+        return 'الرئيسية';
       case 'products':
         return 'إدارة المنتجات';
       case 'invoices':
         return 'الفواتير';
       case 'my-sales':
-        return 'سجل مبيعاتي';
+        return 'مبيعاتي';
       case 'new-invoice':
         return 'فاتورة مبيعات';
       case 'new-purchase-invoice':

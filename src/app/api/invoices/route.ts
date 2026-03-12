@@ -113,6 +113,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const startDateTime = searchParams.get('startDateTime');
+    const endDateTime = searchParams.get('endDateTime');
     
     let sql = `
       SELECT i.*, u.name as userName, u.email as userEmail, c.name as customerName, c.phone as customerPhone
@@ -138,14 +140,18 @@ export async function GET(request: NextRequest) {
       args.push(type);
     }
     
-    if (startDate) {
-      sql += ' AND date(i.createdAt) >= date(?)';
-      args.push(startDate);
+    // Use datetime if provided, otherwise use date
+    const startFilter = startDateTime || startDate;
+    const endFilter = endDateTime || endDate;
+    
+    if (startFilter) {
+      sql += ' AND datetime(i.createdAt) >= datetime(?)';
+      args.push(startFilter);
     }
     
-    if (endDate) {
-      sql += " AND date(i.createdAt) <= date(?)";
-      args.push(endDate);
+    if (endFilter) {
+      sql += ' AND datetime(i.createdAt) <= datetime(?)';
+      args.push(endFilter);
     }
     
     sql += ' ORDER BY i.createdAt DESC';

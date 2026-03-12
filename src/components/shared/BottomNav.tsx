@@ -16,8 +16,10 @@ export function BottomNav({ currentView, setCurrentView, isAdmin }: BottomNavPro
     { id: 'customers', label: 'العملاء', icon: Users },
     { id: 'reports', label: 'التقارير', icon: BarChart3 },
   ] : [
+    { id: 'user-dashboard', label: 'الرئيسية', icon: Home },
     { id: 'new-invoice', label: 'فاتورة', icon: Plus },
     { id: 'my-sales', label: 'مبيعاتي', icon: FileText },
+    { id: 'customers', label: 'العملاء', icon: Users },
   ];
 
   return (

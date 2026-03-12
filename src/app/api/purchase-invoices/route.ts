@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const startDateTime = searchParams.get('startDateTime');
+    const endDateTime = searchParams.get('endDateTime');
     
     let sql = `
       SELECT pi.*, u.name as userName, u.email as userEmail
@@ -93,14 +95,18 @@ export async function GET(request: NextRequest) {
       args.push(userId);
     }
     
-    if (startDate) {
-      sql += ' AND date(pi.createdAt) >= date(?)';
-      args.push(startDate);
+    // Use datetime if provided, otherwise use date
+    const startFilter = startDateTime || startDate;
+    const endFilter = endDateTime || endDate;
+    
+    if (startFilter) {
+      sql += ' AND datetime(pi.createdAt) >= datetime(?)';
+      args.push(startFilter);
     }
     
-    if (endDate) {
-      sql += " AND date(pi.createdAt) <= date(?)";
-      args.push(endDate);
+    if (endFilter) {
+      sql += ' AND datetime(pi.createdAt) <= datetime(?)';
+      args.push(endFilter);
     }
     
     sql += ' ORDER BY pi.createdAt DESC';

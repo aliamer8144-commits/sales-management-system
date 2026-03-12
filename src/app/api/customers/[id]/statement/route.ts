@@ -24,12 +24,12 @@ export async function GET(
     
     const customer = customerResult.rows[0];
     
-    // Get credit invoices for this customer
+    // Get credit invoices and manual invoices for this customer
     let invoicesSql = `
       SELECT i.*, u.name as userName
       FROM Invoice i
       LEFT JOIN User u ON i.userId = u.id
-      WHERE i.customerId = ? AND i.invoiceType = 'credit'
+      WHERE i.customerId = ? AND i.invoiceType IN ('credit', 'manual')
     `;
     const invoicesArgs: (string | number)[] = [customerId];
     
@@ -81,10 +81,13 @@ export async function GET(
         type: 'invoice' as const,
         id: inv.id,
         date: inv.createdAt,
-        description: `فاتورة رقم ${inv.id?.slice(-6)}`,
+        description: inv.invoiceType === 'manual' 
+          ? `فاتورة يدوية - ${inv.notes || 'بدون ملاحظة'}` 
+          : `فاتورة رقم ${inv.id?.slice(-6)}`,
         amount: inv.totalAmount,
         userName: inv.userName,
         notes: inv.notes,
+        invoiceType: inv.invoiceType,
       })),
       ...paymentsResult.rows.map(pay => ({
         type: 'payment' as const,

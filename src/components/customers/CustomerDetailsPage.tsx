@@ -37,6 +37,7 @@ import {
   X,
   Trash2,
   AlertTriangle,
+  FilePlus,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
@@ -59,6 +60,7 @@ interface StatementItem {
   amount: number;
   userName: string;
   notes: string | null;
+  invoiceType?: string;
 }
 
 interface CustomerStatement {
@@ -99,20 +101,25 @@ const formatDateTime = (dateStr: string) => {
 
 export function CustomerDetailsPage({ 
   customerId, 
-  onBack 
+  onBack,
+  isAdmin = true
 }: { 
   customerId: string; 
   onBack: () => void;
+  isAdmin?: boolean;
 }) {
   const user = useAuthStore((state) => state.user);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showManualInvoiceForm, setShowManualInvoiceForm] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [manualInvoiceAmount, setManualInvoiceAmount] = useState('');
+  const [manualInvoiceNotes, setManualInvoiceNotes] = useState('');
   
   // Date filter
   const [startDate, setStartDate] = useState('');
@@ -167,6 +174,51 @@ export function CustomerDetailsPage({
         setShowPaymentForm(false);
         setPaymentAmount('');
         setPaymentNotes('');
+        fetchStatement();
+      } else {
+        const error = await response.json();
+        toast({ title: 'خطأ', description: error.error, variant: 'destructive' });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleManualInvoice = async () => {
+    if (!user?.id) {
+      toast({ title: 'خطأ', description: 'يجب تسجيل الدخول', variant: 'destructive' });
+      return;
+    }
+    
+    const amount = parseFloat(manualInvoiceAmount);
+    if (!amount || amount <= 0) {
+      toast({ title: 'خطأ', description: 'أدخل مبلغ صحيح', variant: 'destructive' });
+      return;
+    }
+
+    if (!manualInvoiceNotes.trim()) {
+      toast({ title: 'خطأ', description: 'يجب كتابة ملاحظة للفاتورة', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/invoices/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId,
+          amount,
+          notes: manualInvoiceNotes,
+          userId: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        toast({ title: 'تم بنجاح', description: 'تم إضافة الفاتورة اليدوية' });
+        setShowManualInvoiceForm(false);
+        setManualInvoiceAmount('');
+        setManualInvoiceNotes('');
         fetchStatement();
       } else {
         const error = await response.json();
@@ -248,12 +300,14 @@ export function CustomerDetailsPage({
               </p>
             )}
           </div>
-          <button 
-            onClick={() => setShowDeleteDialog(true)}
-            className="p-2 hover:bg-red-500/50 rounded-full transition-colors"
-          >
-            <Trash2 className="h-5 w-5" />
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setShowDeleteDialog(true)}
+              className="p-2 hover:bg-red-500/50 rounded-full transition-colors"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          )}
           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
             <User className="h-6 w-6" />
           </div>
@@ -289,15 +343,26 @@ export function CustomerDetailsPage({
             <Banknote className="h-5 w-5 ml-2" />
             قبض من العميل
           </Button>
-          <Button
-            variant="outline"
-            className="h-12 border-teal-500 text-teal-600"
-            onClick={clearFilters}
-          >
-            <X className="h-4 w-4 ml-2" />
-            مسح الفلاتر
-          </Button>
+          {isAdmin && (
+            <Button
+              className="h-12 bg-gradient-to-r from-purple-500 to-indigo-600"
+              onClick={() => setShowManualInvoiceForm(true)}
+            >
+              <FilePlus className="h-5 w-5 ml-2" />
+              إضافة فاتورة
+            </Button>
+          )}
         </div>
+        
+        {/* Date Filter */}
+        <Button
+          variant="outline"
+          className="w-full h-10 border-teal-500 text-teal-600"
+          onClick={clearFilters}
+        >
+          <X className="h-4 w-4 ml-2" />
+          مسح الفلاتر
+        </Button>
 
         {/* Date Filter */}
         <Card className="shadow-sm">
@@ -351,11 +416,15 @@ export function CustomerDetailsPage({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          item.type === 'invoice' 
-                            ? 'bg-red-100 text-red-600' 
-                            : 'bg-green-100 text-green-600'
+                          item.invoiceType === 'manual' 
+                            ? 'bg-purple-100 text-purple-600' 
+                            : item.type === 'invoice' 
+                              ? 'bg-red-100 text-red-600' 
+                              : 'bg-green-100 text-green-600'
                         }`}>
-                          {item.type === 'invoice' ? (
+                          {item.invoiceType === 'manual' ? (
+                            <FilePlus className="h-5 w-5" />
+                          ) : item.type === 'invoice' ? (
                             <FileText className="h-5 w-5" />
                           ) : (
                             <Banknote className="h-5 w-5" />
@@ -366,7 +435,7 @@ export function CustomerDetailsPage({
                           <p className="text-xs text-gray-500">
                             {formatDateTime(item.date)}
                           </p>
-                          {item.notes && (
+                          {item.notes && item.invoiceType !== 'manual' && (
                             <p className="text-xs text-gray-400 mt-0.5">{item.notes}</p>
                           )}
                         </div>
@@ -465,6 +534,74 @@ export function CustomerDetailsPage({
                 variant="outline"
                 className="h-12"
                 onClick={() => setShowPaymentForm(false)}
+              >
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Invoice Dialog */}
+      <Dialog open={showManualInvoiceForm} onOpenChange={setShowManualInvoiceForm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FilePlus className="h-5 w-5 text-purple-600" />
+              إضافة فاتورة يدوية
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="bg-purple-50 rounded-lg p-3">
+              <p className="text-sm text-purple-700">
+                هذه الفاتورة ستُضاف لحساب العميل دون التأثير على المبيعات أو الأرباح أو المخزون
+              </p>
+            </div>
+            
+            <div>
+              <Label>المبلغ *</Label>
+              <Input
+                type="number"
+                value={manualInvoiceAmount}
+                onChange={(e) => setManualInvoiceAmount(e.target.value)}
+                placeholder="0.00"
+                className="h-12 text-lg"
+                step="0.01"
+              />
+            </div>
+            
+            <div>
+              <Label>الملاحظة *</Label>
+              <Textarea
+                value={manualInvoiceNotes}
+                onChange={(e) => setManualInvoiceNotes(e.target.value)}
+                placeholder="أدخل سبب أو وصف الفاتورة..."
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 h-12 bg-gradient-to-r from-purple-500 to-indigo-600"
+                onClick={handleManualInvoice}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 ml-2 animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <FilePlus className="h-5 w-5 ml-2" />
+                    إضافة الفاتورة
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={() => setShowManualInvoiceForm(false)}
               >
                 إلغاء
               </Button>

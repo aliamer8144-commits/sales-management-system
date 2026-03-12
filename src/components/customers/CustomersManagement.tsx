@@ -40,7 +40,11 @@ const formatCurrency = (amount: number) => {
   }).format(amount) + ' ﷼';
 };
 
-export function CustomersManagement() {
+interface CustomersManagementProps {
+  isAdmin?: boolean;
+}
+
+export function CustomersManagement({ isAdmin = true }: CustomersManagementProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -109,6 +113,7 @@ export function CustomersManagement() {
           setSelectedCustomerId(null);
           fetchCustomers();
         }}
+        isAdmin={isAdmin}
       />
     );
   }

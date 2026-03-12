@@ -71,11 +71,12 @@ export async function GET(request: NextRequest) {
     }
     
     if (type === 'users') {
+      // Note: Exclude 'manual' invoices from sales/profit calculations
       let sql = `
         SELECT u.id, u.name, 
                COUNT(DISTINCT i.id) as totalInvoices,
-               COALESCE(SUM(i.totalAmount), 0) as totalSales,
-               COALESCE(SUM(i.totalProfit), 0) as totalProfit
+               COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalAmount ELSE 0 END), 0) as totalSales,
+               COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalProfit ELSE 0 END), 0) as totalProfit
         FROM User u
         LEFT JOIN Invoice i ON u.id = i.userId
       `;
@@ -109,11 +110,12 @@ export async function GET(request: NextRequest) {
 
     // User-specific report
     if (type === 'user-report' && userId) {
+      // Note: Exclude 'manual' invoices from sales/profit calculations
       let sql = `
         SELECT 
           COUNT(DISTINCT i.id) as totalInvoices,
-          COALESCE(SUM(i.totalAmount), 0) as totalSales,
-          COALESCE(SUM(i.totalProfit), 0) as totalProfit
+          COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalAmount ELSE 0 END), 0) as totalSales,
+          COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalProfit ELSE 0 END), 0) as totalProfit
         FROM Invoice i
         WHERE i.userId = ?
       `;
@@ -149,12 +151,13 @@ export async function GET(request: NextRequest) {
     }
     
     // Summary report
+    // Note: 'manual' invoices are excluded from sales/profit but included in credit
     let sql = `
       SELECT 
         COUNT(DISTINCT i.id) as totalInvoices,
-        COALESCE(SUM(i.totalAmount), 0) as totalSales,
-        COALESCE(SUM(i.totalProfit), 0) as totalProfit,
-        COALESCE(SUM(CASE WHEN i.invoiceType = 'credit' THEN i.totalAmount ELSE 0 END), 0) as totalCredit
+        COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalAmount ELSE 0 END), 0) as totalSales,
+        COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalProfit ELSE 0 END), 0) as totalProfit,
+        COALESCE(SUM(CASE WHEN i.invoiceType IN ('credit', 'manual') THEN i.totalAmount ELSE 0 END), 0) as totalCredit
       FROM Invoice i
       WHERE 1=1
     `;
