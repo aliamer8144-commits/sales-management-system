@@ -434,17 +434,11 @@ export function CustomerDetailsPage({
         </div>
 
         {/* Totals */}
-        <div className="border-t pt-2 space-y-1">
+        <div className="border-t pt-2">
           <div className="flex justify-between text-sm font-medium">
             <span>الإجمالي:</span>
             <span><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
           </div>
-          {invoice.totalProfit > 0 && (
-            <div className="flex justify-between text-sm text-green-600">
-              <span>الربح:</span>
-              <span><CurrencyDisplay amount={invoice.totalProfit} symbolSize={10} /></span>
-            </div>
-          )}
         </div>
 
         {invoice.notes && (
