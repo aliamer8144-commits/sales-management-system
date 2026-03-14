@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Users, User, DollarSign, TrendingUp, ChevronLeft, FileText, Banknote, ShoppingCart, ShoppingBag, Filter, CreditCard, Wallet } from 'lucide-react';
+import { Calendar, Loader2, Users, User, DollarSign, TrendingUp, ChevronLeft, ChevronDown, ChevronUp, FileText, Banknote, ShoppingCart, ShoppingBag, Filter, CreditCard, Wallet, Package } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { CurrencyDisplay } from '@/components/ui/saudi-riyal-symbol';
 
@@ -46,6 +46,33 @@ interface DetailedReport {
   }>;
 }
 
+interface InvoiceDetails {
+  id: string;
+  items: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    unitName: string;
+    salePrice: number;
+    purchasePrice: number;
+  }>;
+  totalAmount: number;
+  totalProfit: number;
+  notes?: string;
+  createdAt: string;
+  customer?: { name: string } | null;
+  user: { name: string };
+}
+
+interface PaymentDetails {
+  id: string;
+  amount: number;
+  notes?: string;
+  createdAt: string;
+  customer?: { name: string } | null;
+  user: { name: string };
+}
+
 export function ReportsPage() {
   const [stats, setStats] = useState({
     totalSales: 0,
@@ -73,6 +100,11 @@ export function ReportsPage() {
   const [detailedReport, setDetailedReport] = useState<DetailedReport | null>(null);
   const [detailedReportLoading, setDetailedReportLoading] = useState(false);
   const [transactionFilter, setTransactionFilter] = useState<string>('all');
+
+  // Expanded transaction details (accordion)
+  const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
+  const [transactionDetails, setTransactionDetails] = useState<Record<string, InvoiceDetails | PaymentDetails>>({});
+  const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
 
   // Fetch summary stats
   useEffect(() => {
@@ -168,6 +200,49 @@ export function ReportsPage() {
     }
   };
 
+  // Fetch transaction details
+  const fetchTransactionDetails = async (transactionId: string, type: string) => {
+    if (transactionDetails[transactionId]) {
+      // Already loaded, just toggle
+      setExpandedTransactionId(expandedTransactionId === transactionId ? null : transactionId);
+      return;
+    }
+
+    setLoadingDetails(transactionId);
+
+    try {
+      let endpoint = '';
+      if (type === 'cash_invoice' || type === 'credit_invoice') {
+        endpoint = `/api/invoices/${transactionId}`;
+      } else if (type === 'purchase_invoice') {
+        endpoint = `/api/purchase-invoices/${transactionId}`;
+      } else if (type === 'payment') {
+        endpoint = `/api/payments/${transactionId}`;
+      }
+
+      if (endpoint) {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        setTransactionDetails(prev => ({
+          ...prev,
+          [transactionId]: data,
+        }));
+        setExpandedTransactionId(transactionId);
+      }
+    } finally {
+      setLoadingDetails(null);
+    }
+  };
+
+  // Handle transaction click (toggle accordion)
+  const handleTransactionClick = (transactionId: string, type: string) => {
+    if (expandedTransactionId === transactionId) {
+      setExpandedTransactionId(null);
+    } else {
+      fetchTransactionDetails(transactionId, type);
+    }
+  };
+
   const clearFilters = () => {
     setStartDate('');
     setEndDate('');
@@ -212,6 +287,107 @@ export function ReportsPage() {
       default:
         return { label: type, color: 'bg-gray-100 text-gray-700', icon: FileText };
     }
+  };
+
+  // Render transaction details (accordion content)
+  const renderTransactionDetails = (transactionId: string, type: string) => {
+    const details = transactionDetails[transactionId];
+    const isLoading = loadingDetails === transactionId;
+
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-4 bg-gray-50 rounded-b-lg">
+          <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        </div>
+      );
+    }
+
+    if (!details) return null;
+
+    if (type === 'payment') {
+      const payment = details as PaymentDetails;
+      return (
+        <div className="p-4 bg-gray-50 rounded-b-lg border-t">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">العميل:</span>
+              <span className="font-medium">{payment.customer?.name || '—'}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المبلغ:</span>
+              <span className="font-bold text-green-600"><CurrencyDisplay amount={payment.amount} symbolSize={12} /></span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المستخدم:</span>
+              <span>{payment.user?.name}</span>
+            </div>
+            {payment.notes && (
+              <div className="mt-2 p-2 bg-white rounded border text-sm">
+                <span className="text-gray-500">ملاحظات: </span>
+                {payment.notes}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Invoice details
+    const invoice = details as InvoiceDetails;
+    return (
+      <div className="p-4 bg-gray-50 rounded-b-lg border-t">
+        {/* Customer & User Info */}
+        <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+          <div>
+            <span className="text-gray-500">العميل: </span>
+            <span className="font-medium">{invoice.customer?.name || '—'}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">المستخدم: </span>
+            <span>{invoice.user?.name}</span>
+          </div>
+        </div>
+
+        {/* Items */}
+        <div className="space-y-2 mb-3">
+          <span className="text-sm font-medium text-gray-700">المنتجات:</span>
+          {invoice.items.map((item) => (
+            <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded text-sm">
+              <div>
+                <span className="font-medium">{item.productName}</span>
+                <span className="text-gray-500 text-xs mr-2">
+                  ({item.quantity} {item.unitName} × <CurrencyDisplay amount={item.salePrice} symbolSize={10} />)
+                </span>
+              </div>
+              <span className="font-medium">
+                <CurrencyDisplay amount={item.quantity * item.salePrice} symbolSize={10} />
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Totals */}
+        <div className="border-t pt-2 space-y-1">
+          <div className="flex justify-between text-sm font-medium">
+            <span>الإجمالي:</span>
+            <span><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
+          </div>
+          {invoice.totalProfit > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>الربح:</span>
+              <span><CurrencyDisplay amount={invoice.totalProfit} symbolSize={10} /></span>
+            </div>
+          )}
+        </div>
+
+        {invoice.notes && (
+          <div className="mt-2 p-2 bg-white rounded border text-sm">
+            <span className="text-gray-500">ملاحظات: </span>
+            {invoice.notes}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Detailed Report View
@@ -366,40 +542,61 @@ export function ReportsPage() {
                 {filteredTransactions.map((transaction) => {
                   const typeInfo = getTransactionTypeInfo(transaction.type);
                   const Icon = typeInfo.icon;
+                  const isExpanded = expandedTransactionId === transaction.id;
+                  const isLoading = loadingDetails === transaction.id;
+
                   return (
                     <div
                       key={`${transaction.type}-${transaction.id}`}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="bg-gray-50 rounded-lg overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${typeInfo.color}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-800">
-                              #{transaction.id.slice(-6)}
-                            </span>
-                            <Badge className={typeInfo.color}>{typeInfo.label}</Badge>
+                      {/* Transaction Header - Clickable */}
+                      <div
+                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleTransactionClick(transaction.id, transaction.type)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${typeInfo.color}`}>
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <p className="text-xs text-gray-500">
-                            {formatDateTime(transaction.date)}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {transaction.customerName || '—'} • {transaction.userName}
-                          </p>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-800">
+                                #{transaction.id.slice(-6)}
+                              </span>
+                              <Badge className={typeInfo.color}>{typeInfo.label}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {formatDateTime(transaction.date)}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {transaction.customerName || '—'} • {transaction.userName}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-left">
+                            <p className={`font-bold ${transaction.type === 'purchase_invoice' ? 'text-orange-600' : 'text-gray-800'}`}>
+                              <CurrencyDisplay amount={transaction.amount} symbolSize={12} />
+                            </p>
+                            {transaction.profit !== undefined && transaction.profit > 0 && (
+                              <p className="text-xs text-green-600">
+                                +<CurrencyDisplay amount={transaction.profit} symbolSize={10} /> ربح
+                              </p>
+                            )}
+                          </div>
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          ) : isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          )}
                         </div>
                       </div>
-                      <div className="text-left">
-                        <p className={`font-bold ${transaction.type === 'purchase_invoice' ? 'text-orange-600' : 'text-gray-800'}`}>
-                          <CurrencyDisplay amount={transaction.amount} symbolSize={12} />
-                        </p>
-                        {transaction.profit !== undefined && transaction.profit > 0 && (
-                          <p className="text-xs text-green-600">
-                            +<CurrencyDisplay amount={transaction.profit} symbolSize={10} /> ربح
-                          </p>
-                        )}
-                      </div>
+
+                      {/* Accordion Content - Details */}
+                      {isExpanded && renderTransactionDetails(transaction.id, transaction.type)}
                     </div>
                   );
                 })}
