@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Banknote, User, Phone, Calendar, TrendingUp, TrendingDown, DollarSign, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, FileText, Banknote, User, Phone, Calendar, TrendingUp, TrendingDown, DollarSign, ChevronUp, ChevronDown, FilePlus } from 'lucide-react';
 import { CurrencyDisplay } from '@/components/ui/saudi-riyal-symbol';
 
 interface StatementItem {
@@ -39,6 +38,33 @@ interface SharedStatement {
   generatedAt: string;
 }
 
+interface InvoiceDetails {
+  id: string;
+  items: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    unitName: string;
+    salePrice: number;
+    purchasePrice: number;
+  }>;
+  totalAmount: number;
+  notes?: string;
+  createdAt: string;
+  customer?: { name: string } | null;
+  user: { name: string };
+  invoiceType?: string;
+}
+
+interface PaymentDetails {
+  id: string;
+  amount: number;
+  notes?: string;
+  createdAt: string;
+  customer?: { name: string } | null;
+  user: { name: string };
+}
+
 // Format date and time
 const formatDateTime = (dateStr: string) => {
   return new Intl.DateTimeFormat('ar-SA', {
@@ -67,6 +93,11 @@ export default function SharedStatementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Accordion state for transaction details
+  const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
+  const [transactionDetails, setTransactionDetails] = useState<Record<string, InvoiceDetails | PaymentDetails>>({});
+  const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchStatement = async () => {
       try {
@@ -90,6 +121,168 @@ export default function SharedStatementPage() {
       fetchStatement();
     }
   }, [token]);
+
+  // Fetch transaction details
+  const fetchTransactionDetails = async (transactionId: string, type: string) => {
+    if (transactionDetails[transactionId]) {
+      setExpandedTransactionId(expandedTransactionId === transactionId ? null : transactionId);
+      return;
+    }
+
+    setLoadingDetails(transactionId);
+
+    try {
+      let endpoint = '';
+      if (type === 'invoice') {
+        endpoint = `/api/invoices/${transactionId}`;
+      } else if (type === 'payment') {
+        endpoint = `/api/payments/${transactionId}`;
+      }
+
+      if (endpoint) {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        setTransactionDetails(prev => ({
+          ...prev,
+          [transactionId]: data,
+        }));
+        setExpandedTransactionId(transactionId);
+      }
+    } finally {
+      setLoadingDetails(null);
+    }
+  };
+
+  // Handle transaction click (toggle accordion)
+  const handleTransactionClick = (transactionId: string, type: string) => {
+    if (type === 'previous') return; // Don't expand previous balance
+    
+    if (expandedTransactionId === transactionId) {
+      setExpandedTransactionId(null);
+    } else {
+      fetchTransactionDetails(transactionId, type);
+    }
+  };
+
+  // Render transaction details (accordion content)
+  const renderTransactionDetails = (transactionId: string, type: string) => {
+    const details = transactionDetails[transactionId];
+    const isLoading = loadingDetails === transactionId;
+
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-4 bg-gray-50">
+          <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        </div>
+      );
+    }
+
+    if (!details) return null;
+
+    if (type === 'payment') {
+      const payment = details as PaymentDetails;
+      return (
+        <div className="p-4 bg-gray-50 border-t">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المبلغ:</span>
+              <span className="font-bold text-green-600"><CurrencyDisplay amount={payment.amount} symbolSize={12} /></span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المستخدم:</span>
+              <span>{payment.user?.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">التاريخ:</span>
+              <span>{formatDateTime(payment.createdAt)}</span>
+            </div>
+            {payment.notes && (
+              <div className="mt-2 p-2 bg-white rounded border text-sm">
+                <span className="text-gray-500">ملاحظات: </span>
+                {payment.notes}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Invoice details
+    const invoice = details as InvoiceDetails;
+    const isManual = invoice.invoiceType === 'manual';
+
+    if (isManual) {
+      // Manual invoice - show simple details
+      return (
+        <div className="p-4 bg-gray-50 border-t">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المبلغ:</span>
+              <span className="font-bold text-red-600"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">المستخدم:</span>
+              <span>{invoice.user?.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">التاريخ:</span>
+              <span>{formatDateTime(invoice.createdAt)}</span>
+            </div>
+            {invoice.notes && (
+              <div className="mt-2 p-2 bg-white rounded border text-sm">
+                <span className="text-gray-500">السبب: </span>
+                {invoice.notes}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Regular credit invoice - show items
+    return (
+      <div className="p-4 bg-gray-50 border-t">
+        {/* User Info */}
+        <div className="mb-3 text-sm">
+          <span className="text-gray-500">المستخدم: </span>
+          <span>{invoice.user?.name}</span>
+        </div>
+
+        {/* Items */}
+        <div className="space-y-2 mb-3">
+          <span className="text-sm font-medium text-gray-700">المنتجات:</span>
+          {invoice.items.map((item) => (
+            <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded text-sm">
+              <div>
+                <span className="font-medium">{item.productName}</span>
+                <span className="text-gray-500 text-xs mr-2">
+                  ({item.quantity} {item.unitName} × <CurrencyDisplay amount={item.salePrice} symbolSize={10} />)
+                </span>
+              </div>
+              <span className="font-medium">
+                <CurrencyDisplay amount={item.quantity * item.salePrice} symbolSize={10} />
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Totals */}
+        <div className="border-t pt-2">
+          <div className="flex justify-between text-sm font-medium">
+            <span>الإجمالي:</span>
+            <span><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
+          </div>
+        </div>
+
+        {invoice.notes && (
+          <div className="mt-2 p-2 bg-white rounded border text-sm">
+            <span className="text-gray-500">ملاحظات: </span>
+            {invoice.notes}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -189,6 +382,7 @@ export default function SharedStatementPage() {
                 <FileText className="h-5 w-5 text-teal-600" />
                 كشف الحساب
               </h2>
+              <p className="text-xs text-gray-500 mt-1">اضغط على العملية لعرض التفاصيل</p>
             </div>
 
             {statement.statement.length === 0 ? (
@@ -197,50 +391,78 @@ export default function SharedStatementPage() {
               </div>
             ) : (
               <div className="divide-y">
-                {statement.statement.map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          item.type === 'previous'
-                            ? 'bg-blue-100 text-blue-600'
-                            : item.invoiceType === 'manual'
-                              ? 'bg-purple-100 text-purple-600'
-                              : item.type === 'invoice'
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-green-100 text-green-600'
-                        }`}>
-                          {item.type === 'previous' ? (
-                            <DollarSign className="h-5 w-5" />
-                          ) : item.type === 'invoice' ? (
-                            <FileText className="h-5 w-5" />
-                          ) : (
-                            <Banknote className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium">{item.description}</p>
-                          <p className="text-xs text-gray-500">
-                            {item.type === 'previous' ? formatDate(item.date) : formatDateTime(item.date)}
-                          </p>
-                          {item.notes && (
-                            <p className="text-xs text-gray-400 mt-0.5">{item.notes}</p>
-                          )}
+                {statement.statement.map((item) => {
+                  const isExpanded = expandedTransactionId === item.id;
+                  const isLoading = loadingDetails === item.id;
+                  const isClickable = item.type !== 'previous';
+                  
+                  return (
+                    <div key={`${item.type}-${item.id}`} className="overflow-hidden">
+                      {/* Transaction Header - Clickable */}
+                      <div 
+                        className={`p-4 transition-colors ${isClickable ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
+                        onClick={() => isClickable && handleTransactionClick(item.id, item.type)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              item.type === 'previous'
+                                ? 'bg-blue-100 text-blue-600'
+                                : item.invoiceType === 'manual'
+                                  ? 'bg-purple-100 text-purple-600'
+                                  : item.type === 'invoice'
+                                    ? 'bg-red-100 text-red-600'
+                                    : 'bg-green-100 text-green-600'
+                            }`}>
+                              {item.type === 'previous' ? (
+                                <DollarSign className="h-5 w-5" />
+                              ) : item.invoiceType === 'manual' ? (
+                                <FilePlus className="h-5 w-5" />
+                              ) : item.type === 'invoice' ? (
+                                <FileText className="h-5 w-5" />
+                              ) : (
+                                <Banknote className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">{item.description}</p>
+                              <p className="text-xs text-gray-500">
+                                {item.type === 'previous' ? formatDate(item.date) : formatDateTime(item.date)}
+                              </p>
+                              {item.notes && item.type === 'previous' && (
+                                <p className="text-xs text-gray-400 mt-0.5">{item.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-left">
+                              <p className={`font-bold ${
+                                item.amount > 0 ? 'text-red-600' : 'text-green-600'
+                              }`}>
+                                {item.amount > 0 ? '+' : ''}<CurrencyDisplay amount={item.amount} symbolSize={12} />
+                              </p>
+                              {item.userName && (
+                                <p className="text-xs text-gray-400">{item.userName}</p>
+                              )}
+                            </div>
+                            {isClickable && (
+                              isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                              ) : isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              )
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-left">
-                        <p className={`font-bold ${
-                          item.amount > 0 ? 'text-red-600' : 'text-green-600'
-                        }`}>
-                          {item.amount > 0 ? '+' : ''}<CurrencyDisplay amount={item.amount} symbolSize={12} />
-                        </p>
-                        {item.userName && (
-                          <p className="text-xs text-gray-400">{item.userName}</p>
-                        )}
-                      </div>
+
+                      {/* Accordion Content - Details */}
+                      {isExpanded && renderTransactionDetails(item.id, item.type)}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
