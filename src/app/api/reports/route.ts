@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     if (type === 'user-report' && userId) {
       // Note: Exclude 'manual' invoices from sales/profit calculations
       let sql = `
-        SELECT 
+        SELECT
           COUNT(DISTINCT i.id) as totalInvoices,
           COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalAmount ELSE 0 END), 0) as totalSales,
           COALESCE(SUM(CASE WHEN i.invoiceType != 'manual' THEN i.totalProfit ELSE 0 END), 0) as totalProfit
@@ -120,33 +120,199 @@ export async function GET(request: NextRequest) {
         WHERE i.userId = ?
       `;
       const args: (string | number)[] = [userId];
-      
+
       const startFilter = startDateTime || startDate;
       const endFilter = endDateTime || endDate;
-      
+
       if (startFilter) {
         sql += " AND datetime(i.createdAt) >= datetime(?)";
         args.push(startFilter);
       }
-      
+
       if (endFilter) {
         sql += " AND datetime(i.createdAt) <= datetime(?)";
         args.push(endFilter);
       }
-      
+
       const result = await db.execute({ sql, args });
-      
+
       // Get user info
       const userResult = await db.execute({
         sql: 'SELECT id, name, email FROM User WHERE id = ?',
         args: [userId],
       });
-      
+
       return NextResponse.json({
         user: userResult.rows[0] || null,
         totalInvoices: result.rows[0]?.totalInvoices || 0,
         totalSales: result.rows[0]?.totalSales || 0,
         totalProfit: result.rows[0]?.totalProfit || 0,
+      });
+    }
+
+    // Detailed report with transactions
+    if (type === 'detailed') {
+      const startFilter = startDateTime || startDate;
+      const endFilter = endDateTime || endDate;
+
+      // Build base conditions
+      const invoiceConditions: string[] = [];
+      const paymentConditions: string[] = [];
+      const invoiceArgs: (string | number)[] = [];
+      const paymentArgs: (string | number)[] = [];
+
+      if (startFilter) {
+        invoiceConditions.push("datetime(i.createdAt) >= datetime(?)");
+        invoiceArgs.push(startFilter);
+        paymentConditions.push("datetime(p.createdAt) >= datetime(?)");
+        paymentArgs.push(startFilter);
+      }
+
+      if (endFilter) {
+        invoiceConditions.push("datetime(i.createdAt) <= datetime(?)");
+        invoiceArgs.push(endFilter);
+        paymentConditions.push("datetime(p.createdAt) <= datetime(?)");
+        paymentArgs.push(endFilter);
+      }
+
+      if (userId) {
+        invoiceConditions.push("i.userId = ?");
+        invoiceArgs.push(userId);
+        paymentConditions.push("p.userId = ?");
+        paymentArgs.push(userId);
+      }
+
+      const invoiceWhere = invoiceConditions.length > 0 ? 'WHERE ' + invoiceConditions.join(' AND ') : '';
+      const paymentWhere = paymentConditions.length > 0 ? 'WHERE ' + paymentConditions.join(' AND ') : '';
+
+      // Get sales invoices (cash and credit)
+      const salesInvoices = await db.execute({
+        sql: `
+          SELECT i.id, i.totalAmount, i.totalProfit, i.invoiceType, i.createdAt,
+                 i.customerId, c.name as customerName, u.name as userName
+          FROM Invoice i
+          LEFT JOIN Customer c ON i.customerId = c.id
+          LEFT JOIN User u ON i.userId = u.id
+          ${invoiceWhere}
+        `,
+        args: invoiceArgs,
+      });
+
+      // Get purchase invoices
+      const purchaseInvoices = await db.execute({
+        sql: `
+          SELECT i.id, i.totalAmount, i.createdAt, u.name as userName
+          FROM PurchaseInvoice i
+          LEFT JOIN User u ON i.userId = u.id
+          ${invoiceWhere.replace(/i\./g, 'i.')}
+        `,
+        args: invoiceArgs,
+      });
+
+      // Get payments
+      const payments = await db.execute({
+        sql: `
+          SELECT p.id, p.amount, p.createdAt, p.customerId, c.name as customerName, u.name as userName
+          FROM Payment p
+          LEFT JOIN Customer c ON p.customerId = c.id
+          LEFT JOIN User u ON p.userId = u.id
+          ${paymentWhere}
+        `,
+        args: paymentArgs,
+      });
+
+      // Calculate stats
+      let totalCashInvoices = 0;
+      let totalCreditInvoices = 0;
+      let totalProfit = 0;
+      let totalDebts = 0;
+      let totalPayments = 0;
+
+      const transactions: Array<{
+        id: string;
+        type: 'cash_invoice' | 'credit_invoice' | 'purchase_invoice' | 'payment';
+        date: string;
+        amount: number;
+        profit?: number;
+        customerName?: string;
+        userName: string;
+      }> = [];
+
+      // Process sales invoices
+      for (const row of salesInvoices.rows) {
+        const invoice = row as { id: string; totalAmount: number; totalProfit: number; invoiceType: string; createdAt: string; customerName: string | null; userName: string };
+
+        if (invoice.invoiceType === 'cash') {
+          totalCashInvoices += invoice.totalAmount;
+          totalProfit += invoice.totalProfit;
+          transactions.push({
+            id: invoice.id,
+            type: 'cash_invoice',
+            date: invoice.createdAt,
+            amount: invoice.totalAmount,
+            profit: invoice.totalProfit,
+            customerName: invoice.customerName || undefined,
+            userName: invoice.userName,
+          });
+        } else if (invoice.invoiceType === 'credit' || invoice.invoiceType === 'manual') {
+          totalCreditInvoices += invoice.totalAmount;
+          totalDebts += invoice.totalAmount;
+          if (invoice.invoiceType === 'credit') {
+            totalProfit += invoice.totalProfit;
+          }
+          transactions.push({
+            id: invoice.id,
+            type: 'credit_invoice',
+            date: invoice.createdAt,
+            amount: invoice.totalAmount,
+            profit: invoice.invoiceType === 'credit' ? invoice.totalProfit : undefined,
+            customerName: invoice.customerName || undefined,
+            userName: invoice.userName,
+          });
+        }
+      }
+
+      // Process purchase invoices
+      for (const row of purchaseInvoices.rows) {
+        const invoice = row as { id: string; totalAmount: number; createdAt: string; userName: string };
+        transactions.push({
+          id: invoice.id,
+          type: 'purchase_invoice',
+          date: invoice.createdAt,
+          amount: invoice.totalAmount,
+          userName: invoice.userName,
+        });
+      }
+
+      // Process payments
+      for (const row of payments.rows) {
+        const payment = row as { id: string; amount: number; createdAt: string; customerName: string | null; userName: string };
+        totalPayments += payment.amount;
+        transactions.push({
+          id: payment.id,
+          type: 'payment',
+          date: payment.createdAt,
+          amount: payment.amount,
+          customerName: payment.customerName || undefined,
+          userName: payment.userName,
+        });
+      }
+
+      // Sort by date descending
+      transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const totalSales = totalCashInvoices + totalCreditInvoices + totalPayments;
+
+      return NextResponse.json({
+        stats: {
+          totalSales,
+          totalProfit,
+          totalPayments,
+          totalDebts,
+          totalCashInvoices,
+          totalCreditInvoices,
+        },
+        transactions,
       });
     }
     
