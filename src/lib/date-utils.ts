@@ -1,6 +1,6 @@
 /**
  * Date utilities for Yemen timezone (UTC+3)
- * All dates in the system are stored and displayed in Yemen local time
+ * All dates in the system are stored in Yemen local time
  */
 
 // Yemen timezone offset (UTC+3)
@@ -30,9 +30,37 @@ export function getYemenNowString(): string {
 }
 
 /**
- * Format a Yemen time string for display
- * Dates are stored in Yemen timezone (UTC+3), but when JavaScript parses them
- * it interprets them as local timezone. We need to convert back to Yemen time.
+ * Parse date string and return components
+ * Handles both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
+ */
+function parseDateString(dateStr: string): { year: number; month: number; day: number; hours: number; minutes: number; seconds: number } | null {
+  // Handle both space and T separator
+  const normalized = dateStr.replace(' ', 'T');
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  
+  if (!match) return null;
+  
+  return {
+    year: parseInt(match[1]),
+    month: parseInt(match[2]),
+    day: parseInt(match[3]),
+    hours: parseInt(match[4]),
+    minutes: parseInt(match[5]),
+    seconds: parseInt(match[6]),
+  };
+}
+
+/**
+ * Arabic month names
+ */
+const arabicMonths = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+];
+
+/**
+ * Format a date string for display in Arabic
+ * Since dates are stored in Yemen timezone, we just format them directly
  */
 export function formatYemenDateTime(
   date: string | Date | null | undefined,
@@ -40,61 +68,74 @@ export function formatYemenDateTime(
 ): string {
   if (!date) return '';
   
-  // Parse the date
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
+  let dateStr: string;
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    // If it's a Date object, convert to Yemen time string
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const yemenTime = new Date(utcTime + (YEMEN_TIMEZONE_OFFSET * 3600000));
+    dateStr = `${yemenTime.getFullYear()}-${String(yemenTime.getMonth() + 1).padStart(2, '0')}-${String(yemenTime.getDate()).padStart(2, '0')} ${String(yemenTime.getHours()).padStart(2, '0')}:${String(yemenTime.getMinutes()).padStart(2, '0')}:${String(yemenTime.getSeconds()).padStart(2, '0')}`;
+  }
   
-  // The date is stored in Yemen timezone (UTC+3)
-  // When JS parses it, it treats it as local time
-  // We need to convert it back to Yemen time
+  const parsed = parseDateString(dateStr);
+  if (!parsed) return '';
   
-  // Get what JS thinks is the "local" time components
-  // Then adjust by the timezone difference
-  const localOffset = d.getTimezoneOffset(); // minutes from UTC (negative if ahead)
-  const yemenOffset = -180; // Yemen is UTC+3, so -180 minutes from UTC
+  // Format in Arabic
+  const monthName = arabicMonths[parsed.month - 1];
+  const hours12 = parsed.hours % 12 || 12;
+  const ampm = parsed.hours >= 12 ? 'م' : 'ص';
   
-  // Difference in minutes between local timezone and Yemen
-  const diffMinutes = localOffset - yemenOffset;
-  
-  // Create a new date adjusted to Yemen time
-  const yemenDate = new Date(d.getTime() + (diffMinutes * 60000));
-  
-  const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    ...options
-  };
-  
-  // Format using the adjusted date's components
-  // We use 'en-CA' for YYYY-MM-DD format style, then format with Arabic
-  return new Intl.DateTimeFormat('ar-SA', {
-    ...defaultOptions,
-    timeZone: 'UTC' // Use UTC to prevent further timezone conversion
-  }).format(yemenDate);
+  return `${parsed.day} ${monthName} ${parsed.year}، ${hours12}:${String(parsed.minutes).padStart(2, '0')} ${ampm}`;
 }
 
 /**
- * Format date only
+ * Format date only (no time)
  */
 export function formatYemenDate(date: string | Date | null | undefined): string {
-  return formatYemenDateTime(date, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  if (!date) return '';
+  
+  let dateStr: string;
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const yemenTime = new Date(utcTime + (YEMEN_TIMEZONE_OFFSET * 3600000));
+    dateStr = `${yemenTime.getFullYear()}-${String(yemenTime.getMonth() + 1).padStart(2, '0')}-${String(yemenTime.getDate()).padStart(2, '0')}`;
+  }
+  
+  const parsed = parseDateString(dateStr);
+  if (!parsed) return '';
+  
+  const monthName = arabicMonths[parsed.month - 1];
+  return `${parsed.day} ${monthName} ${parsed.year}`;
 }
 
 /**
  * Format time only
  */
 export function formatYemenTime(date: string | Date | null | undefined): string {
-  return formatYemenDateTime(date, {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  if (!date) return '';
+  
+  let dateStr: string;
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const yemenTime = new Date(utcTime + (YEMEN_TIMEZONE_OFFSET * 3600000));
+    dateStr = `${String(yemenTime.getHours()).padStart(2, '0')}:${String(yemenTime.getMinutes()).padStart(2, '0')}`;
+  }
+  
+  // Parse time from string
+  const timeMatch = dateStr.match(/(\d{2}):(\d{2})/);
+  if (!timeMatch) return '';
+  
+  const hours = parseInt(timeMatch[1]);
+  const minutes = parseInt(timeMatch[2]);
+  const hours12 = hours % 12 || 12;
+  const ampm = hours >= 12 ? 'م' : 'ص';
+  
+  return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
 }
 
 /**
@@ -104,22 +145,19 @@ export function formatYemenTime(date: string | Date | null | undefined): string 
 export function getYemenDateTimeLocal(date: string | Date | null | undefined): string {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
+  let dateStr: string;
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const yemenTime = new Date(utcTime + (YEMEN_TIMEZONE_OFFSET * 3600000));
+    dateStr = `${yemenTime.getFullYear()}-${String(yemenTime.getMonth() + 1).padStart(2, '0')}-${String(yemenTime.getDate()).padStart(2, '0')}T${String(yemenTime.getHours()).padStart(2, '0')}:${String(yemenTime.getMinutes()).padStart(2, '0')}`;
+  }
   
-  // Convert to Yemen timezone
-  const localOffset = d.getTimezoneOffset();
-  const yemenOffset = -180; // UTC+3
-  const diffMinutes = localOffset - yemenOffset;
-  const yemenDate = new Date(d.getTime() + (diffMinutes * 60000));
+  const parsed = parseDateString(dateStr);
+  if (!parsed) return '';
   
-  const year = yemenDate.getUTCFullYear();
-  const month = String(yemenDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(yemenDate.getUTCDate()).padStart(2, '0');
-  const hours = String(yemenDate.getUTCHours()).padStart(2, '0');
-  const minutes = String(yemenDate.getUTCMinutes()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${String(parsed.day).padStart(2, '0')}T${String(parsed.hours).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')}`;
 }
 
 /**
@@ -129,20 +167,19 @@ export function getYemenDateTimeLocal(date: string | Date | null | undefined): s
 export function getYemenDateString(date: string | Date | null | undefined): string {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
+  let dateStr: string;
+  if (typeof date === 'string') {
+    dateStr = date;
+  } else {
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const yemenTime = new Date(utcTime + (YEMEN_TIMEZONE_OFFSET * 3600000));
+    dateStr = `${yemenTime.getFullYear()}-${String(yemenTime.getMonth() + 1).padStart(2, '0')}-${String(yemenTime.getDate()).padStart(2, '0')}`;
+  }
   
-  // Convert to Yemen timezone
-  const localOffset = d.getTimezoneOffset();
-  const yemenOffset = -180; // UTC+3
-  const diffMinutes = localOffset - yemenOffset;
-  const yemenDate = new Date(d.getTime() + (diffMinutes * 60000));
+  const parsed = parseDateString(dateStr);
+  if (!parsed) return '';
   
-  const year = yemenDate.getUTCFullYear();
-  const month = String(yemenDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(yemenDate.getUTCDate()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}`;
+  return `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${String(parsed.day).padStart(2, '0')}`;
 }
 
 /**
