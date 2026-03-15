@@ -9,6 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -26,6 +32,9 @@ import {
   Filter,
   Clock,
   Edit,
+  ChevronDown,
+  ChevronUp,
+  Package,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import type { Invoice } from '@/types';
@@ -215,7 +224,8 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
   ].filter(Boolean).length;
   
   // Handle edit invoice
-  const handleEditInvoice = (invoice: Invoice) => {
+  const handleEditInvoice = (invoice: Invoice, e: React.MouseEvent) => {
+    e.stopPropagation();
     setEditInvoiceId(invoice.id);
     setShowEditDialog(true);
   };
@@ -233,7 +243,7 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
             <Button
               variant="outline"
               className="gap-2 border-teal-500 text-teal-600 hover:bg-teal-50"
-              onClick={() => handleEditInvoice(selectedSalesInvoice)}
+              onClick={() => handleEditInvoice(selectedSalesInvoice, {} as React.MouseEvent)}
             >
               <Edit className="h-4 w-4" />
               تعديل
@@ -394,6 +404,227 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
     </Badge>
   );
   
+  // Sales Invoice Accordion Item
+  const SalesInvoiceAccordionItem = ({ invoice, index }: { invoice: Invoice; index: number }) => (
+    <AccordionItem value={invoice.id} className="border rounded-lg mb-3 overflow-hidden">
+      <AccordionTrigger className="hover:no-underline px-4 py-3 bg-white hover:bg-gray-50">
+        <div className="flex items-center justify-between w-full pr-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+              <ShoppingCart className="h-5 w-5 text-teal-600" />
+            </div>
+            <div className="text-right">
+              <p className="font-medium text-gray-800">{invoice.user.name}</p>
+              <p className="text-xs text-gray-500">
+                {formatYemenDateTime(invoice.createdAt)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-left">
+              <p className="font-bold text-teal-600"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></p>
+              <Badge
+                className={`text-xs ${
+                  invoice.invoiceType === 'cash' 
+                    ? 'bg-teal-100 text-teal-700' 
+                    : invoice.invoiceType === 'credit'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-purple-100 text-purple-700'
+                }`}
+              >
+                {invoice.invoiceType === 'cash' ? 'نقد' : invoice.invoiceType === 'credit' ? 'آجل' : 'يدوية'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pb-4 bg-gray-50">
+        <div className="space-y-3 pt-3">
+          {/* Invoice Info */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">المستخدم</p>
+              <p className="font-medium">{invoice.user.name}</p>
+            </div>
+            {invoice.customer && (
+              <div>
+                <p className="text-gray-500">العميل</p>
+                <p className="font-medium">{invoice.customer.name}</p>
+              </div>
+            )}
+          </div>
+          
+          <Separator />
+          
+          {/* Products */}
+          <div>
+            <h4 className="font-semibold mb-2 flex items-center gap-2">
+              <Package className="h-4 w-4 text-teal-600" />
+              المنتجات
+            </h4>
+            <div className="space-y-2">
+              {invoice.items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded-lg border">
+                  <div>
+                    <p className="font-medium text-sm">{item.productName}</p>
+                    <p className="text-xs text-gray-500">
+                      {item.quantity} {item.unitName} × <CurrencyDisplay amount={item.salePrice} symbolSize={10} />
+                    </p>
+                  </div>
+                  <p className="font-bold text-sm"><CurrencyDisplay amount={item.quantity * item.salePrice} symbolSize={10} /></p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <Separator />
+          
+          {/* Totals */}
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-500">الإجمالي</span>
+              <span className="font-bold"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
+            </div>
+            {isAdmin && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">الربح</span>
+                <span className="font-bold text-green-600">
+                  <CurrencyDisplay amount={invoice.totalProfit} symbolSize={10} />
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* Notes */}
+          {invoice.notes && (
+            <>
+              <Separator />
+              <div>
+                <p className="text-gray-500 text-xs mb-1">ملاحظات</p>
+                <p className="bg-white p-2 rounded-lg text-sm border">{invoice.notes}</p>
+              </div>
+            </>
+          )}
+          
+          {/* Actions */}
+          {isAdmin && (
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2 border-teal-500 text-teal-600 hover:bg-teal-50"
+                onClick={(e) => handleEditInvoice(invoice, e)}
+              >
+                <Edit className="h-4 w-4" />
+                تعديل
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setSelectedSalesInvoice(invoice)}
+              >
+                <FileText className="h-4 w-4" />
+                عرض التفاصيل
+              </Button>
+            </div>
+          )}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+  
+  // Purchase Invoice Accordion Item
+  const PurchaseInvoiceAccordionItem = ({ invoice }: { invoice: PurchaseInvoice }) => (
+    <AccordionItem value={invoice.id} className="border rounded-lg mb-3 overflow-hidden">
+      <AccordionTrigger className="hover:no-underline px-4 py-3 bg-white hover:bg-gray-50">
+        <div className="flex items-center justify-between w-full pr-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <ShoppingBag className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="text-right">
+              <p className="font-medium text-gray-800">{invoice.user.name}</p>
+              <p className="text-xs text-gray-500">
+                {formatYemenDateTime(invoice.createdAt)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-left">
+              <p className="font-bold text-amber-600"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></p>
+              <Badge className="bg-amber-100 text-amber-700 text-xs">
+                مشتريات
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pb-4 bg-gray-50">
+        <div className="space-y-3 pt-3">
+          {/* Invoice Info */}
+          <div className="text-sm">
+            <p className="text-gray-500">المستخدم</p>
+            <p className="font-medium">{invoice.user.name}</p>
+          </div>
+          
+          <Separator />
+          
+          {/* Products */}
+          <div>
+            <h4 className="font-semibold mb-2 flex items-center gap-2">
+              <Package className="h-4 w-4 text-amber-600" />
+              المنتجات
+            </h4>
+            <div className="space-y-2">
+              {invoice.items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded-lg border">
+                  <div>
+                    <p className="font-medium text-sm">{item.productName}</p>
+                    <p className="text-xs text-gray-500">
+                      {item.quantity} {item.unitName} × <CurrencyDisplay amount={item.purchasePrice} symbolSize={10} />
+                    </p>
+                  </div>
+                  <p className="font-bold text-sm"><CurrencyDisplay amount={item.quantity * item.purchasePrice} symbolSize={10} /></p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <Separator />
+          
+          {/* Total */}
+          <div className="flex justify-between">
+            <span className="text-gray-500">الإجمالي</span>
+            <span className="font-bold"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></span>
+          </div>
+          
+          {/* Notes */}
+          {invoice.notes && (
+            <>
+              <Separator />
+              <div>
+                <p className="text-gray-500 text-xs mb-1">ملاحظات</p>
+                <p className="bg-white p-2 rounded-lg text-sm border">{invoice.notes}</p>
+              </div>
+            </>
+          )}
+          
+          {/* View Details Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 mt-2"
+            onClick={() => setSelectedPurchaseInvoice(invoice)}
+          >
+            <FileText className="h-4 w-4" />
+            عرض التفاصيل الكاملة
+          </Button>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+  
   // Admin View with Tabs
   if (isAdmin) {
     return (
@@ -476,45 +707,11 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
                 <p className="text-gray-500">لا توجد فواتير مبيعات</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {salesInvoices.map((invoice) => (
-                  <Card
-                    key={invoice.id}
-                    className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedSalesInvoice(invoice)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
-                            <ShoppingCart className="h-5 w-5 text-teal-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{invoice.user.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {formatYemenDateTime(invoice.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-left">
-                          <p className="font-bold"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></p>
-                          <Badge
-                            className={`text-xs ${
-                              invoice.invoiceType === 'cash' 
-                                ? 'bg-teal-100 text-teal-700' 
-                                : invoice.invoiceType === 'credit'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-purple-100 text-purple-700'
-                            }`}
-                          >
-                            {invoice.invoiceType === 'cash' ? 'نقد' : invoice.invoiceType === 'credit' ? 'آجل' : 'يدوية'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+              <Accordion type="single" collapsible className="space-y-0">
+                {salesInvoices.map((invoice, index) => (
+                  <SalesInvoiceAccordionItem key={invoice.id} invoice={invoice} index={index} />
                 ))}
-              </div>
+              </Accordion>
             )}
           </TabsContent>
           
@@ -530,37 +727,11 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
                 <p className="text-gray-500">لا توجد فواتير مشتريات</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <Accordion type="single" collapsible className="space-y-0">
                 {purchaseInvoices.map((invoice) => (
-                  <Card
-                    key={invoice.id}
-                    className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedPurchaseInvoice(invoice)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                            <ShoppingBag className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{invoice.user.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {formatYemenDateTime(invoice.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-left">
-                          <p className="font-bold"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></p>
-                          <Badge className="bg-amber-100 text-amber-700 text-xs">
-                            مشتريات
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <PurchaseInvoiceAccordionItem key={invoice.id} invoice={invoice} />
                 ))}
-              </div>
+              </Accordion>
             )}
           </TabsContent>
         </Tabs>
@@ -746,45 +917,11 @@ export function InvoicesList({ isAdmin }: InvoicesListProps) {
           <p className="text-gray-500">لا توجد فواتير</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {salesInvoices.map((invoice) => (
-            <Card
-              key={invoice.id}
-              className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setSelectedSalesInvoice(invoice)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-teal-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">فاتورة #{invoice.id.slice(-6)}</p>
-                      <p className="text-xs text-gray-500">
-                        {formatYemenDateTime(invoice.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold"><CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} /></p>
-                    <Badge
-                      className={`text-xs ${
-                        invoice.invoiceType === 'cash' 
-                          ? 'bg-teal-100 text-teal-700' 
-                          : invoice.invoiceType === 'credit'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-purple-100 text-purple-700'
-                      }`}
-                    >
-                      {invoice.invoiceType === 'cash' ? 'نقد' : invoice.invoiceType === 'credit' ? 'آجل' : 'يدوية'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <Accordion type="single" collapsible className="space-y-0">
+          {salesInvoices.map((invoice, index) => (
+            <SalesInvoiceAccordionItem key={invoice.id} invoice={invoice} index={index} />
           ))}
-        </div>
+        </Accordion>
       )}
       
       {/* Filter Dialog */}
