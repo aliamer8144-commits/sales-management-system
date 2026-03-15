@@ -14,6 +14,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -661,6 +671,8 @@ function ProductSearchRow({
   const [quantity, setQuantity] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAdd, setPendingAdd] = useState<{ qty: number; price: number } | null>(null);
 
   const totalPieces = calculateTotalPieces(product.units);
   const hasStock = totalPieces > 0;
@@ -683,17 +695,52 @@ function ProductSearchRow({
     setExpanded(true);
   };
 
+  // Check if profit margin is more than 200%
+  // Profit > 200% means: salePrice >= 3 × purchasePrice
+  const isHighProfitMargin = (salePriceValue: number, purchasePriceValue: number): boolean => {
+    if (purchasePriceValue <= 0) return false;
+    // Profit percentage = ((salePrice - purchasePrice) / purchasePrice) * 100
+    // > 200% means salePrice > 3 * purchasePrice
+    return salePriceValue >= 3 * purchasePriceValue;
+  };
+
   const handleAdd = () => {
     if (!selectedUnitId || !quantity || !salePrice) return;
     const qty = parseInt(quantity);
     const price = parseFloat(salePrice);
     if (qty <= 0 || price <= 0) return;
-    
+
+    const unit = product.units.find((u) => u.id === selectedUnitId);
+    if (unit && isHighProfitMargin(price, unit.purchasePrice)) {
+      // Show confirmation dialog
+      setPendingAdd({ qty, price });
+      setShowConfirmDialog(true);
+      return;
+    }
+
+    // Add directly if profit is normal
     onAdd(product, selectedUnitId, qty, price);
     setSelectedUnitId('');
     setQuantity('');
     setSalePrice('');
     setExpanded(false);
+  };
+
+  const handleConfirmAdd = () => {
+    if (pendingAdd) {
+      onAdd(product, selectedUnitId, pendingAdd.qty, pendingAdd.price);
+      setSelectedUnitId('');
+      setQuantity('');
+      setSalePrice('');
+      setExpanded(false);
+    }
+    setShowConfirmDialog(false);
+    setPendingAdd(null);
+  };
+
+  const handleCancelAdd = () => {
+    setShowConfirmDialog(false);
+    setPendingAdd(null);
   };
 
   const selectedUnit = selectedUnitId ? product.units.find((u) => u.id === selectedUnitId) : null;
@@ -823,6 +870,22 @@ function ProductSearchRow({
           </div>
         );
       })()}
+
+      {/* Confirmation Dialog for High Profit Margin */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل انت متأكد من الوحدة والسعر؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAdd}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAdd}>تأكيد</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
