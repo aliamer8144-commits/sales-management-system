@@ -147,16 +147,16 @@ export async function PUT(
       if (unit.id) {
         // Update existing unit
         await db.execute({
-          sql: `UPDATE ProductUnit SET unitType = ?, unitName = ?, purchasePrice = ?, containsPieces = ?, stockQuantity = ?, updatedAt = ? WHERE id = ?`,
-          args: [unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), unit.id],
+          sql: `UPDATE ProductUnit SET unitType = ?, unitName = ?, purchasePrice = ?, salePrice = ?, containsPieces = ?, stockQuantity = ?, updatedAt = ? WHERE id = ?`,
+          args: [unit.unitType, unit.unitName, unit.purchasePrice, unit.salePrice || null, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), unit.id],
         });
       } else {
         // Create new unit
         const unitId = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
         await db.execute({
-          sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, containsPieces, stockQuantity, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [unitId, id, unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), getCurrentDate()],
+          sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, salePrice, containsPieces, stockQuantity, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [unitId, id, unit.unitType, unit.unitName, unit.purchasePrice, unit.salePrice || null, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), getCurrentDate()],
         });
       }
     }

@@ -38,6 +38,7 @@ export function ProductsManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -143,6 +144,9 @@ export function ProductsManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return; // Prevent double submission
+    
+    setIsSaving(true);
     const units = buildUnits();
 
     try {
@@ -170,6 +174,8 @@ export function ProductsManagement() {
       }
     } catch {
       toast({ title: 'خطأ', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -625,10 +631,24 @@ export function ProductsManagement() {
                   <Button
                     type="submit"
                     className="flex-1 h-12 bg-gradient-to-r from-teal-500 to-emerald-600"
+                    disabled={isSaving}
                   >
-                    {editingProduct ? 'حفظ التغييرات' : 'إضافة المنتج'}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      editingProduct ? 'حفظ التغييرات' : 'إضافة المنتج'
+                    )}
                   </Button>
-                  <Button type="button" variant="outline" className="flex-1 h-12" onClick={() => setShowForm(false)}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="flex-1 h-12" 
+                    onClick={() => setShowForm(false)}
+                    disabled={isSaving}
+                  >
                     إلغاء
                   </Button>
                 </div>
