@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
           unitType: unit.unitType,
           unitName: unit.unitName,
           purchasePrice: unit.purchasePrice,
+          salePrice: (unit as Record<string, unknown>).salePrice || unit.purchasePrice,
           containsPieces: unit.containsPieces,
           stockQuantity: unit.stockQuantity,
         })),

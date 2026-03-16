@@ -58,6 +58,7 @@ import {
   Check,
   ChevronDown,
   User,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
@@ -672,6 +673,7 @@ function ProductSearchRow({
   const [salePrice, setSalePrice] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showLossDialog, setShowLossDialog] = useState(false);
   const [pendingAdd, setPendingAdd] = useState<{ qty: number; price: number } | null>(null);
 
   const totalPieces = calculateTotalPieces(product.units);
@@ -690,9 +692,17 @@ function ProductSearchRow({
     setQuantity('');
     const unit = product.units.find(u => u.id === unitId);
     if (unit) {
-      setSalePrice(unit.salePrice?.toString() || '');
+      // Use salePrice if available, otherwise use purchasePrice as default
+      const defaultPrice = unit.salePrice && unit.salePrice > 0 ? unit.salePrice : unit.purchasePrice;
+      setSalePrice(defaultPrice.toString());
     }
     setExpanded(true);
+  };
+
+  // Check if sale price is less than or equal to purchase price (loss warning)
+  const isLossPrice = (salePriceValue: number, purchasePriceValue: number): boolean => {
+    if (purchasePriceValue <= 0) return false;
+    return salePriceValue <= purchasePriceValue;
   };
 
   // Check if profit margin is more than 200%
@@ -711,14 +721,23 @@ function ProductSearchRow({
     if (qty <= 0 || price <= 0) return;
 
     const unit = product.units.find((u) => u.id === selectedUnitId);
-    if (unit && isHighProfitMargin(price, unit.purchasePrice)) {
-      // Show confirmation dialog
-      setPendingAdd({ qty, price });
-      setShowConfirmDialog(true);
-      return;
+    if (unit) {
+      // Check for loss price first (sale price <= purchase price)
+      if (isLossPrice(price, unit.purchasePrice)) {
+        setPendingAdd({ qty, price });
+        setShowLossDialog(true);
+        return;
+      }
+      
+      // Check for high profit margin
+      if (isHighProfitMargin(price, unit.purchasePrice)) {
+        setPendingAdd({ qty, price });
+        setShowConfirmDialog(true);
+        return;
+      }
     }
 
-    // Add directly if profit is normal
+    // Add directly if price is normal
     onAdd(product, selectedUnitId, qty, price);
     setSelectedUnitId('');
     setQuantity('');
@@ -883,6 +902,25 @@ function ProductSearchRow({
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAdd}>إلغاء</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAdd}>تأكيد</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Warning Dialog for Loss Price (Sale Price <= Purchase Price) */}
+      <AlertDialog open={showLossDialog} onOpenChange={setShowLossDialog}>
+        <AlertDialogContent className="border-red-200 bg-red-50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-700 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              تحذير
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-red-600 text-base">
+              سعر البيع أقل من سعر الشراء، هل انت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAdd} className="border-red-200 hover:bg-red-100">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAdd} className="bg-red-600 hover:bg-red-700">تأكيد</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -153,6 +153,18 @@ export async function POST() {
       // العمود موجود مسبقاً
     }
     
+    // إضافة عمود سعر البيع لوحدات المنتج إذا لم يكن موجوداً
+    try {
+      const productUnitColumns = await db.execute(`PRAGMA table_info(ProductUnit)`);
+      const hasSalePrice = productUnitColumns.rows.some((col: { name: string }) => col.name === 'salePrice');
+      if (!hasSalePrice) {
+        await db.execute(`ALTER TABLE ProductUnit ADD COLUMN salePrice REAL DEFAULT 0`);
+        console.log('✅ تم إضافة عمود سعر البيع لوحدات المنتج');
+      }
+    } catch {
+      // العمود موجود مسبقاً
+    }
+    
     // التحقق من وجود أعمدة الوحدات في InvoiceItem
     try {
       const itemColumns = await db.execute(`PRAGMA table_info(InvoiceItem)`);

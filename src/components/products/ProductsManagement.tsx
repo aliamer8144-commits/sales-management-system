@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Package, Plus, Search, Trash2, Edit, X, AlertTriangle } from 'lucide-react';
+import { Loader2, Package, Plus, Search, Trash2, Edit, X, AlertTriangle, DollarSign } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { Product, ProductUnit, ProductFormData } from '@/types';
 
@@ -19,10 +19,13 @@ const initialFormData: ProductFormData = {
   notes: '',
   baseUnitType: 'piece',
   cartonPurchasePrice: '',
+  cartonSalePrice: '',
   cartonPacketsCount: '',
   packetPiecesCount: '',
   packetPurchasePrice: '',
+  packetSalePrice: '',
   piecePurchasePrice: '',
+  pieceSalePrice: '',
   cartonStock: '',
   packetStock: '',
   pieceStock: '',
@@ -62,7 +65,8 @@ export function ProductsManagement() {
     const units: ProductUnit[] = [];
 
     if (formData.baseUnitType === 'carton') {
-      const cartonPrice = parseFloat(formData.cartonPurchasePrice) || 0;
+      const cartonPurchasePrice = parseFloat(formData.cartonPurchasePrice) || 0;
+      const cartonSalePrice = parseFloat(formData.cartonSalePrice) || cartonPurchasePrice;
       const packetsInCarton = parseInt(formData.cartonPacketsCount) || 1;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
       const totalPieces = packetsInCarton * piecesInPacket;
@@ -70,47 +74,65 @@ export function ProductsManagement() {
       units.push({
         unitType: 'carton',
         unitName: 'كرتون',
-        purchasePrice: cartonPrice,
+        purchasePrice: cartonPurchasePrice,
+        salePrice: cartonSalePrice,
         containsPieces: totalPieces,
         stockQuantity: parseInt(formData.cartonStock) || 0,
       });
+      
+      const packetPurchasePrice = cartonPurchasePrice / packetsInCarton;
+      const packetSalePrice = formData.packetSalePrice ? parseFloat(formData.packetSalePrice) : packetPurchasePrice;
       units.push({
         unitType: 'packet',
         unitName: 'باكت',
-        purchasePrice: cartonPrice / packetsInCarton,
+        purchasePrice: packetPurchasePrice,
+        salePrice: packetSalePrice,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
+      
+      const piecePurchasePrice = cartonPurchasePrice / totalPieces;
+      const pieceSalePrice = formData.pieceSalePrice ? parseFloat(formData.pieceSalePrice) : piecePurchasePrice;
       units.push({
         unitType: 'piece',
         unitName: 'قطعة',
-        purchasePrice: cartonPrice / totalPieces,
+        purchasePrice: piecePurchasePrice,
+        salePrice: pieceSalePrice,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
     } else if (formData.baseUnitType === 'packet') {
-      const packetPrice = parseFloat(formData.packetPurchasePrice) || 0;
+      const packetPurchasePrice = parseFloat(formData.packetPurchasePrice) || 0;
+      const packetSalePrice = parseFloat(formData.packetSalePrice) || packetPurchasePrice;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
 
       units.push({
         unitType: 'packet',
         unitName: 'باكت',
-        purchasePrice: packetPrice,
+        purchasePrice: packetPurchasePrice,
+        salePrice: packetSalePrice,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
+      
+      const piecePurchasePrice = packetPurchasePrice / piecesInPacket;
+      const pieceSalePrice = formData.pieceSalePrice ? parseFloat(formData.pieceSalePrice) : piecePurchasePrice;
       units.push({
         unitType: 'piece',
         unitName: 'قطعة',
-        purchasePrice: packetPrice / piecesInPacket,
+        purchasePrice: piecePurchasePrice,
+        salePrice: pieceSalePrice,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
     } else {
+      const piecePurchasePrice = parseFloat(formData.piecePurchasePrice) || 0;
+      const pieceSalePrice = parseFloat(formData.pieceSalePrice) || piecePurchasePrice;
       units.push({
         unitType: 'piece',
         unitName: 'قطعة',
-        purchasePrice: parseFloat(formData.piecePurchasePrice) || 0,
+        purchasePrice: piecePurchasePrice,
+        salePrice: pieceSalePrice,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
@@ -175,13 +197,16 @@ export function ProductsManagement() {
       notes: product.notes || '',
       baseUnitType,
       cartonPurchasePrice: cartonUnit?.purchasePrice.toString() || '',
+      cartonSalePrice: cartonUnit?.salePrice?.toString() || '',
       cartonPacketsCount:
         cartonUnit && packetUnit
           ? (cartonUnit.containsPieces / packetUnit.containsPieces).toString()
           : '',
       packetPiecesCount: packetUnit?.containsPieces.toString() || '',
       packetPurchasePrice: packetUnit?.purchasePrice.toString() || '',
+      packetSalePrice: packetUnit?.salePrice?.toString() || '',
       piecePurchasePrice: pieceUnit?.purchasePrice.toString() || '',
+      pieceSalePrice: pieceUnit?.salePrice?.toString() || '',
       cartonStock: cartonUnit?.stockQuantity.toString() || '',
       packetStock: packetUnit?.stockQuantity.toString() || '',
       pieceStock: pieceUnit?.stockQuantity.toString() || '',
@@ -206,12 +231,12 @@ export function ProductsManagement() {
   };
 
   // Calculated prices
-  const calcPacketPrice =
+  const calcPacketPurchasePrice =
     formData.baseUnitType === 'carton' && formData.cartonPurchasePrice && formData.cartonPacketsCount
       ? (parseFloat(formData.cartonPurchasePrice) / parseInt(formData.cartonPacketsCount)).toFixed(2)
       : '';
 
-  const calcPiecePrice =
+  const calcPiecePurchasePrice =
     formData.baseUnitType === 'carton' &&
     formData.cartonPurchasePrice &&
     formData.cartonPacketsCount &&
@@ -309,6 +334,17 @@ export function ProductsManagement() {
                         />
                       </div>
                       <div>
+                        <Label className="text-xs text-green-700 font-medium">سعر بيع الكرتون</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.cartonSalePrice}
+                          onChange={(e) => setFormData({ ...formData, cartonSalePrice: e.target.value })}
+                          className="h-10 border-green-300 focus:border-green-500"
+                          placeholder="اختياري"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-xs">عدد البواكت في الكرتون *</Label>
                         <Input
                           type="number"
@@ -329,14 +365,40 @@ export function ProductsManagement() {
                         />
                       </div>
                     </div>
-                    {calcPacketPrice && (
+                    {calcPacketPurchasePrice && (
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <Label className="text-xs text-emerald-700 font-medium">سعر بيع الباكت</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.packetSalePrice}
+                            onChange={(e) => setFormData({ ...formData, packetSalePrice: e.target.value })}
+                            className="h-10 border-green-300 focus:border-green-500"
+                            placeholder="اختياري"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-emerald-700 font-medium">سعر بيع القطعة</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.pieceSalePrice}
+                            onChange={(e) => setFormData({ ...formData, pieceSalePrice: e.target.value })}
+                            className="h-10 border-green-300 focus:border-green-500"
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {calcPacketPurchasePrice && (
                       <p className="text-sm text-teal-700">
-                        سعر الباكت المحسوب: <strong>{calcPacketPrice} ﷼</strong>
+                        سعر شراء الباكت المحسوب: <strong>{calcPacketPurchasePrice} ﷼</strong>
                       </p>
                     )}
-                    {calcPiecePrice && (
+                    {calcPiecePurchasePrice && (
                       <p className="text-sm text-teal-700">
-                        سعر القطعة المحسوب: <strong>{calcPiecePrice} ﷼</strong>
+                        سعر شراء القطعة المحسوب: <strong>{calcPiecePurchasePrice} ﷼</strong>
                       </p>
                     )}
                   </div>
@@ -359,6 +421,17 @@ export function ProductsManagement() {
                         />
                       </div>
                       <div>
+                        <Label className="text-xs text-green-700 font-medium">سعر بيع الباكت</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.packetSalePrice}
+                          onChange={(e) => setFormData({ ...formData, packetSalePrice: e.target.value })}
+                          className="h-10 border-green-300 focus:border-green-500"
+                          placeholder="اختياري"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-xs">عدد القطع في الباكت *</Label>
                         <Input
                           type="number"
@@ -368,10 +441,21 @@ export function ProductsManagement() {
                           className="h-10"
                         />
                       </div>
+                      <div>
+                        <Label className="text-xs text-green-700 font-medium">سعر بيع القطعة</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.pieceSalePrice}
+                          onChange={(e) => setFormData({ ...formData, pieceSalePrice: e.target.value })}
+                          className="h-10 border-green-300 focus:border-green-500"
+                          placeholder="اختياري"
+                        />
+                      </div>
                     </div>
-                    {calcPiecePrice && (
+                    {calcPiecePurchasePrice && (
                       <p className="text-sm text-emerald-700">
-                        سعر القطعة المحسوب: <strong>{calcPiecePrice} ﷼</strong>
+                        سعر شراء القطعة المحسوب: <strong>{calcPiecePurchasePrice} ﷼</strong>
                       </p>
                     )}
                   </div>
@@ -381,16 +465,29 @@ export function ProductsManagement() {
                 {formData.baseUnitType === 'piece' && (
                   <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-gray-800">بيانات القطعة</h4>
-                    <div>
-                      <Label className="text-xs">سعر شراء القطعة *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.piecePurchasePrice}
-                        onChange={(e) => setFormData({ ...formData, piecePurchasePrice: e.target.value })}
-                        required
-                        className="h-10"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">سعر شراء القطعة *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.piecePurchasePrice}
+                          onChange={(e) => setFormData({ ...formData, piecePurchasePrice: e.target.value })}
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-green-700 font-medium">سعر بيع القطعة</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.pieceSalePrice}
+                          onChange={(e) => setFormData({ ...formData, pieceSalePrice: e.target.value })}
+                          className="h-10 border-green-300 focus:border-green-500"
+                          placeholder="اختياري"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
