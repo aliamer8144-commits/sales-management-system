@@ -227,6 +227,7 @@ export async function GET(request: NextRequest) {
       let totalProfit = 0;
       let totalDebts = 0;
       let totalPayments = 0;
+      let totalPurchases = 0;
 
       const transactions: Array<{
         id: string;
@@ -275,6 +276,7 @@ export async function GET(request: NextRequest) {
       // Process purchase invoices
       for (const row of purchaseInvoices.rows) {
         const invoice = row as { id: string; totalAmount: number; createdAt: string; userName: string };
+        totalPurchases += invoice.totalAmount;
         transactions.push({
           id: invoice.id,
           type: 'purchase_invoice',
@@ -302,6 +304,7 @@ export async function GET(request: NextRequest) {
       transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       const totalSales = totalCashInvoices + totalCreditInvoices + totalPayments;
+      const currentAmount = totalCashInvoices + totalPayments - totalPurchases;
 
       return NextResponse.json({
         stats: {
@@ -311,6 +314,8 @@ export async function GET(request: NextRequest) {
           totalDebts,
           totalCashInvoices,
           totalCreditInvoices,
+          totalPurchases,
+          currentAmount,
         },
         transactions,
       });

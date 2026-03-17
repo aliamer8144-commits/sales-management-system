@@ -34,6 +34,8 @@ interface DetailedReport {
     totalDebts: number;
     totalCashInvoices: number;
     totalCreditInvoices: number;
+    totalPurchases: number;
+    currentAmount: number;
   };
   transactions: Array<{
     id: string;
@@ -422,7 +424,7 @@ export function ReportsPage() {
                 <CurrencyDisplay amount={detailedReport.stats.totalSales} symbolSize={14} />
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                نقد: <CurrencyDisplay amount={detailedReport.stats.totalCashInvoices} symbolSize={10} /> | 
+                نقد: <CurrencyDisplay amount={detailedReport.stats.totalCashInvoices} symbolSize={10} /> |
                 آجل: <CurrencyDisplay amount={detailedReport.stats.totalCreditInvoices} symbolSize={10} />
               </p>
             </CardContent>
@@ -464,6 +466,42 @@ export function ReportsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Current Amount Card */}
+        <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Wallet className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <span className="text-sm text-purple-700 font-medium">المبلغ الحالي</span>
+                  <p className="text-xs text-purple-500 mt-0.5">النقدية + القبض - المشتريات</p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className={`text-xl font-bold ${detailedReport.stats.currentAmount >= 0 ? 'text-purple-800' : 'text-red-600'}`}>
+                  <CurrencyDisplay amount={detailedReport.stats.currentAmount} symbolSize={16} />
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-purple-100 grid grid-cols-3 gap-2 text-center text-xs">
+              <div>
+                <span className="text-purple-500">نقدية</span>
+                <p className="font-medium text-purple-700"><CurrencyDisplay amount={detailedReport.stats.totalCashInvoices} symbolSize={10} /></p>
+              </div>
+              <div>
+                <span className="text-purple-500">+ قبض</span>
+                <p className="font-medium text-purple-700"><CurrencyDisplay amount={detailedReport.stats.totalPayments} symbolSize={10} /></p>
+              </div>
+              <div>
+                <span className="text-purple-500">- مشتريات</span>
+                <p className="font-medium text-purple-700"><CurrencyDisplay amount={detailedReport.stats.totalPurchases} symbolSize={10} /></p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Transaction Filter */}
         <Card className="shadow-md">
