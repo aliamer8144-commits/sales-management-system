@@ -4,6 +4,7 @@ export interface ProductUnit {
   unitType: 'carton' | 'packet' | 'piece';
   unitName: string;
   purchasePrice: number;
+  salePrice?: number;
   containsPieces: number;
   stockQuantity: number;
 }
@@ -76,10 +77,13 @@ export interface ProductFormData {
   notes: string;
   baseUnitType: 'carton' | 'packet' | 'piece';
   cartonPurchasePrice: string;
+  cartonSalePrice: string;
   cartonPacketsCount: string;
   packetPiecesCount: string;
   packetPurchasePrice: string;
+  packetSalePrice: string;
   piecePurchasePrice: string;
+  pieceSalePrice: string;
   cartonStock: string;
   packetStock: string;
   pieceStock: string;

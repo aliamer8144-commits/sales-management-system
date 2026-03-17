@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
           unitType: unit.unitType,
           unitName: unit.unitName,
           purchasePrice: unit.purchasePrice,
+          salePrice: (unit as Record<string, unknown>).salePrice || 0,
           containsPieces: unit.containsPieces,
           stockQuantity: unit.stockQuantity,
         })),
@@ -129,24 +130,56 @@ export async function POST(request: NextRequest) {
       });
     }
     
+    // Check if salePrice column exists
+    let hasSalePriceColumn = true;
+    try {
+      const unitTableInfo = await db.execute({
+        sql: "PRAGMA table_info(ProductUnit)",
+        args: [],
+      });
+      const unitColumns = unitTableInfo.rows.map((row) => (row as Record<string, unknown>).name);
+      hasSalePriceColumn = unitColumns.includes('salePrice');
+    } catch {
+      hasSalePriceColumn = false;
+    }
+
     // Create units with converted stock
     for (const unit of processedUnits) {
       const unitId = generateId();
-      await db.execute({
-        sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, containsPieces, stockQuantity, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [
-          unitId,
-          productId,
-          unit.unitType,
-          unit.unitName,
-          unit.purchasePrice,
-          unit.containsPieces,
-          unit.stockQuantity || 0,
-          getCurrentDate(),
-          getCurrentDate(),
-        ],
-      });
+      if (hasSalePriceColumn) {
+        await db.execute({
+          sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, salePrice, containsPieces, stockQuantity, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            unitId,
+            productId,
+            unit.unitType,
+            unit.unitName,
+            unit.purchasePrice,
+            unit.salePrice || 0,
+            unit.containsPieces,
+            unit.stockQuantity || 0,
+            getCurrentDate(),
+            getCurrentDate(),
+          ],
+        });
+      } else {
+        await db.execute({
+          sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, containsPieces, stockQuantity, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            unitId,
+            productId,
+            unit.unitType,
+            unit.unitName,
+            unit.purchasePrice,
+            unit.containsPieces,
+            unit.stockQuantity || 0,
+            getCurrentDate(),
+            getCurrentDate(),
+          ],
+        });
+      }
     }
     
     // Get created product with units

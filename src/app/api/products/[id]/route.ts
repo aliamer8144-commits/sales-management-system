@@ -36,7 +36,15 @@ export async function GET(
       alertLimit: productResult.rows[0].alertLimit,
       alertUnitType: (productResult.rows[0] as Record<string, unknown>).alertUnitType || 'piece',
       notes: productResult.rows[0].notes,
-      units: unitsResult.rows,
+      units: unitsResult.rows.map(unit => ({
+        id: unit.id,
+        unitType: unit.unitType,
+        unitName: unit.unitName,
+        purchasePrice: unit.purchasePrice,
+        salePrice: (unit as Record<string, unknown>).salePrice || 0,
+        containsPieces: unit.containsPieces,
+        stockQuantity: unit.stockQuantity,
+      })),
     });
   } catch (error) {
     console.error('Get product error:', error);
@@ -142,22 +150,50 @@ export async function PUT(
       }
     }
     
+    // Check if salePrice column exists
+    let hasSalePriceColumn = true;
+    try {
+      const unitTableInfo = await db.execute({
+        sql: "PRAGMA table_info(ProductUnit)",
+        args: [],
+      });
+      const unitColumns = unitTableInfo.rows.map((row) => (row as Record<string, unknown>).name);
+      hasSalePriceColumn = unitColumns.includes('salePrice');
+    } catch {
+      hasSalePriceColumn = false;
+    }
+
     // Update or create units with converted stock
     for (const unit of processedUnits) {
       if (unit.id) {
         // Update existing unit
-        await db.execute({
-          sql: `UPDATE ProductUnit SET unitType = ?, unitName = ?, purchasePrice = ?, containsPieces = ?, stockQuantity = ?, updatedAt = ? WHERE id = ?`,
-          args: [unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), unit.id],
-        });
+        if (hasSalePriceColumn) {
+          await db.execute({
+            sql: `UPDATE ProductUnit SET unitType = ?, unitName = ?, purchasePrice = ?, salePrice = ?, containsPieces = ?, stockQuantity = ?, updatedAt = ? WHERE id = ?`,
+            args: [unit.unitType, unit.unitName, unit.purchasePrice, unit.salePrice || 0, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), unit.id],
+          });
+        } else {
+          await db.execute({
+            sql: `UPDATE ProductUnit SET unitType = ?, unitName = ?, purchasePrice = ?, containsPieces = ?, stockQuantity = ?, updatedAt = ? WHERE id = ?`,
+            args: [unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), unit.id],
+          });
+        }
       } else {
         // Create new unit
         const unitId = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-        await db.execute({
-          sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, containsPieces, stockQuantity, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [unitId, id, unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), getCurrentDate()],
-        });
+        if (hasSalePriceColumn) {
+          await db.execute({
+            sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, salePrice, containsPieces, stockQuantity, createdAt, updatedAt)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [unitId, id, unit.unitType, unit.unitName, unit.purchasePrice, unit.salePrice || 0, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), getCurrentDate()],
+          });
+        } else {
+          await db.execute({
+            sql: `INSERT INTO ProductUnit (id, productId, unitType, unitName, purchasePrice, containsPieces, stockQuantity, createdAt, updatedAt)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [unitId, id, unit.unitType, unit.unitName, unit.purchasePrice, unit.containsPieces, unit.stockQuantity || 0, getCurrentDate(), getCurrentDate()],
+          });
+        }
       }
     }
     
@@ -178,7 +214,15 @@ export async function PUT(
       alertLimit: productResult.rows[0].alertLimit,
       alertUnitType: (productResult.rows[0] as Record<string, unknown>).alertUnitType || 'piece',
       notes: productResult.rows[0].notes,
-      units: unitsResult.rows,
+      units: unitsResult.rows.map(unit => ({
+        id: unit.id,
+        unitType: unit.unitType,
+        unitName: unit.unitName,
+        purchasePrice: unit.purchasePrice,
+        salePrice: (unit as Record<string, unknown>).salePrice || 0,
+        containsPieces: unit.containsPieces,
+        stockQuantity: unit.stockQuantity,
+      })),
     });
   } catch (error) {
     console.error('Update product error:', error);

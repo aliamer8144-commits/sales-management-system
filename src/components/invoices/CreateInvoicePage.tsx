@@ -58,6 +58,7 @@ import {
   Check,
   ChevronDown,
   User,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
@@ -671,7 +672,8 @@ function ProductSearchRow({
   const [quantity, setQuantity] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [expanded, setExpanded] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showHighProfitDialog, setShowHighProfitDialog] = useState(false);
+  const [showLowProfitDialog, setShowLowProfitDialog] = useState(false);
   const [pendingAdd, setPendingAdd] = useState<{ qty: number; price: number } | null>(null);
 
   const totalPieces = calculateTotalPieces(product.units);
@@ -689,8 +691,10 @@ function ProductSearchRow({
     setSelectedUnitId(unitId);
     setQuantity('');
     const unit = product.units.find(u => u.id === unitId);
-    if (unit) {
-      setSalePrice(unit.salePrice?.toString() || '');
+    if (unit && unit.salePrice && unit.salePrice > 0) {
+      setSalePrice(unit.salePrice.toString());
+    } else {
+      setSalePrice('');
     }
     setExpanded(true);
   };
@@ -704,6 +708,11 @@ function ProductSearchRow({
     return salePriceValue >= 3 * purchasePriceValue;
   };
 
+  // Check if sale price is less than or equal to purchase price
+  const isLowProfit = (salePriceValue: number, purchasePriceValue: number): boolean => {
+    return salePriceValue <= purchasePriceValue;
+  };
+
   const handleAdd = () => {
     if (!selectedUnitId || !quantity || !salePrice) return;
     const qty = parseInt(quantity);
@@ -711,15 +720,27 @@ function ProductSearchRow({
     if (qty <= 0 || price <= 0) return;
 
     const unit = product.units.find((u) => u.id === selectedUnitId);
-    if (unit && isHighProfitMargin(price, unit.purchasePrice)) {
-      // Show confirmation dialog
-      setPendingAdd({ qty, price });
-      setShowConfirmDialog(true);
-      return;
+    if (unit) {
+      // Check for low profit first (sale price <= purchase price)
+      if (isLowProfit(price, unit.purchasePrice)) {
+        setPendingAdd({ qty, price });
+        setShowLowProfitDialog(true);
+        return;
+      }
+      // Then check for high profit margin
+      if (isHighProfitMargin(price, unit.purchasePrice)) {
+        setPendingAdd({ qty, price });
+        setShowHighProfitDialog(true);
+        return;
+      }
     }
 
     // Add directly if profit is normal
     onAdd(product, selectedUnitId, qty, price);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setSelectedUnitId('');
     setQuantity('');
     setSalePrice('');
@@ -729,17 +750,16 @@ function ProductSearchRow({
   const handleConfirmAdd = () => {
     if (pendingAdd) {
       onAdd(product, selectedUnitId, pendingAdd.qty, pendingAdd.price);
-      setSelectedUnitId('');
-      setQuantity('');
-      setSalePrice('');
-      setExpanded(false);
+      resetForm();
     }
-    setShowConfirmDialog(false);
+    setShowHighProfitDialog(false);
+    setShowLowProfitDialog(false);
     setPendingAdd(null);
   };
 
   const handleCancelAdd = () => {
-    setShowConfirmDialog(false);
+    setShowHighProfitDialog(false);
+    setShowLowProfitDialog(false);
     setPendingAdd(null);
   };
 
@@ -871,8 +891,27 @@ function ProductSearchRow({
         );
       })()}
 
+      {/* Confirmation Dialog for Low Profit (sale price <= purchase price) */}
+      <AlertDialog open={showLowProfitDialog} onOpenChange={setShowLowProfitDialog}>
+        <AlertDialogContent className="border-amber-200 bg-gradient-to-b from-amber-50 to-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-amber-700 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              تنبيه
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-amber-800 text-base">
+              سعر البيع اقل من سعر الشراء، هل انت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAdd} className="border-amber-200 hover:bg-amber-100">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAdd} className="bg-amber-600 hover:bg-amber-700">تأكيد</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Confirmation Dialog for High Profit Margin */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialog open={showHighProfitDialog} onOpenChange={setShowHighProfitDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد</AlertDialogTitle>

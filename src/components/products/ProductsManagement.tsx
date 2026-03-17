@@ -19,10 +19,13 @@ const initialFormData: ProductFormData = {
   notes: '',
   baseUnitType: 'piece',
   cartonPurchasePrice: '',
+  cartonSalePrice: '',
   cartonPacketsCount: '',
   packetPiecesCount: '',
   packetPurchasePrice: '',
+  packetSalePrice: '',
   piecePurchasePrice: '',
+  pieceSalePrice: '',
   cartonStock: '',
   packetStock: '',
   pieceStock: '',
@@ -63,6 +66,7 @@ export function ProductsManagement() {
 
     if (formData.baseUnitType === 'carton') {
       const cartonPrice = parseFloat(formData.cartonPurchasePrice) || 0;
+      const cartonSale = parseFloat(formData.cartonSalePrice) || 0;
       const packetsInCarton = parseInt(formData.cartonPacketsCount) || 1;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
       const totalPieces = packetsInCarton * piecesInPacket;
@@ -71,6 +75,7 @@ export function ProductsManagement() {
         unitType: 'carton',
         unitName: 'كرتون',
         purchasePrice: cartonPrice,
+        salePrice: cartonSale,
         containsPieces: totalPieces,
         stockQuantity: parseInt(formData.cartonStock) || 0,
       });
@@ -78,6 +83,7 @@ export function ProductsManagement() {
         unitType: 'packet',
         unitName: 'باكت',
         purchasePrice: cartonPrice / packetsInCarton,
+        salePrice: cartonSale ? cartonSale / packetsInCarton : 0,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
@@ -85,17 +91,20 @@ export function ProductsManagement() {
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: cartonPrice / totalPieces,
+        salePrice: cartonSale ? cartonSale / totalPieces : 0,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
     } else if (formData.baseUnitType === 'packet') {
       const packetPrice = parseFloat(formData.packetPurchasePrice) || 0;
+      const packetSale = parseFloat(formData.packetSalePrice) || 0;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
 
       units.push({
         unitType: 'packet',
         unitName: 'باكت',
         purchasePrice: packetPrice,
+        salePrice: packetSale,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
@@ -103,6 +112,7 @@ export function ProductsManagement() {
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: packetPrice / piecesInPacket,
+        salePrice: packetSale ? packetSale / piecesInPacket : 0,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
@@ -111,6 +121,7 @@ export function ProductsManagement() {
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: parseFloat(formData.piecePurchasePrice) || 0,
+        salePrice: parseFloat(formData.pieceSalePrice) || 0,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
@@ -175,13 +186,16 @@ export function ProductsManagement() {
       notes: product.notes || '',
       baseUnitType,
       cartonPurchasePrice: cartonUnit?.purchasePrice.toString() || '',
+      cartonSalePrice: cartonUnit?.salePrice?.toString() || '',
       cartonPacketsCount:
         cartonUnit && packetUnit
           ? (cartonUnit.containsPieces / packetUnit.containsPieces).toString()
           : '',
       packetPiecesCount: packetUnit?.containsPieces.toString() || '',
       packetPurchasePrice: packetUnit?.purchasePrice.toString() || '',
+      packetSalePrice: packetUnit?.salePrice?.toString() || '',
       piecePurchasePrice: pieceUnit?.purchasePrice.toString() || '',
+      pieceSalePrice: pieceUnit?.salePrice?.toString() || '',
       cartonStock: cartonUnit?.stockQuantity.toString() || '',
       packetStock: packetUnit?.stockQuantity.toString() || '',
       pieceStock: pieceUnit?.stockQuantity.toString() || '',
@@ -309,6 +323,16 @@ export function ProductsManagement() {
                         />
                       </div>
                       <div>
+                        <Label className="text-xs">سعر بيع الكرتون</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.cartonSalePrice}
+                          onChange={(e) => setFormData({ ...formData, cartonSalePrice: e.target.value })}
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-xs">عدد البواكت في الكرتون *</Label>
                         <Input
                           type="number"
@@ -359,6 +383,16 @@ export function ProductsManagement() {
                         />
                       </div>
                       <div>
+                        <Label className="text-xs">سعر بيع الباكت</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.packetSalePrice}
+                          onChange={(e) => setFormData({ ...formData, packetSalePrice: e.target.value })}
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-xs">عدد القطع في الباكت *</Label>
                         <Input
                           type="number"
@@ -381,16 +415,28 @@ export function ProductsManagement() {
                 {formData.baseUnitType === 'piece' && (
                   <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-gray-800">بيانات القطعة</h4>
-                    <div>
-                      <Label className="text-xs">سعر شراء القطعة *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.piecePurchasePrice}
-                        onChange={(e) => setFormData({ ...formData, piecePurchasePrice: e.target.value })}
-                        required
-                        className="h-10"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">سعر شراء القطعة *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.piecePurchasePrice}
+                          onChange={(e) => setFormData({ ...formData, piecePurchasePrice: e.target.value })}
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">سعر بيع القطعة</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.pieceSalePrice}
+                          onChange={(e) => setFormData({ ...formData, pieceSalePrice: e.target.value })}
+                          className="h-10"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
