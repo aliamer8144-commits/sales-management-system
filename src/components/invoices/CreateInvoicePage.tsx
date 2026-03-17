@@ -893,19 +893,19 @@ function ProductSearchRow({
 
       {/* Confirmation Dialog for Low Profit (sale price <= purchase price) */}
       <AlertDialog open={showLowProfitDialog} onOpenChange={setShowLowProfitDialog}>
-        <AlertDialogContent className="border-amber-200 bg-gradient-to-b from-amber-50 to-white">
+        <AlertDialogContent className="border-red-300 bg-gradient-to-b from-red-50 to-white">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-amber-700 flex items-center gap-2">
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               تنبيه
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-amber-800 text-base">
+            <AlertDialogDescription className="text-red-700 text-base font-medium">
               سعر البيع اقل من سعر الشراء، هل انت متأكد؟
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelAdd} className="border-amber-200 hover:bg-amber-100">إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAdd} className="bg-amber-600 hover:bg-amber-700">تأكيد</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelAdd} className="border-red-200 hover:bg-red-100">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAdd} className="bg-red-600 hover:bg-red-700">تأكيد</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
