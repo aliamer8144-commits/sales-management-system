@@ -19,6 +19,7 @@ import { CreatePurchaseInvoicePage } from '@/components/invoices/CreatePurchaseI
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { InventoryCheck } from '@/components/inventory/InventoryCheck';
+import { InventoryMatching } from '@/components/inventory/InventoryMatching';
 
 // Header Component (small enough to keep here)
 function Header({ user, onSettings, title }: { user: User; onSettings: () => void; title: string }) {
@@ -63,7 +64,7 @@ export default function App() {
   if (!isAuthenticated) return <LoginPage />;
 
   const isAdmin = user?.role === 'admin';
-  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard', 'inventory'].includes(currentDisplayView);
+  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard', 'inventory', 'inventory-matching'].includes(currentDisplayView);
 
   const renderContent = () => {
     switch (currentDisplayView) {
@@ -86,7 +87,9 @@ export default function App() {
       case 'reports':
         return <ReportsPage />;
       case 'inventory':
-        return <InventoryCheck />;
+        return <InventoryCheck onNavigate={setCurrentView} />;
+      case 'inventory-matching':
+        return <InventoryMatching onBack={() => setCurrentView('inventory')} />;
       case 'settings':
         return <SettingsPage onLogout={handleLogout} onNavigate={setCurrentView} />;
       default:
