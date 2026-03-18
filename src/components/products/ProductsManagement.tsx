@@ -9,12 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Loader2,
   Package,
   Plus,
@@ -26,9 +20,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import type { Product, ProductUnit, ProductFormData, Invoice } from '@/types';
-import { CurrencyDisplay } from '@/components/ui/saudi-riyal-symbol';
-import { formatYemenDateTime } from '@/lib/date-utils';
+import type { Product, ProductUnit, ProductFormData } from '@/types';
 
 const initialFormData: ProductFormData = {
   name: '',
@@ -49,19 +41,17 @@ const initialFormData: ProductFormData = {
   pieceStock: '',
 };
 
-export function ProductsManagement() {
+interface ProductsManagementProps {
+  onViewInvoices?: (productId: string, productName: string) => void;
+}
+
+export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
-  
-  // Product invoices dialog state
-  const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productInvoices, setProductInvoices] = useState<Invoice[]>([]);
-  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -194,19 +184,9 @@ export function ProductsManagement() {
   };
 
   // View product invoices
-  const handleViewInvoices = async (product: Product) => {
-    setSelectedProduct(product);
-    setShowInvoicesDialog(true);
-    setIsLoadingInvoices(true);
-    try {
-      const response = await fetch(`/api/invoices?productId=${product.id}`);
-      const data = await response.json();
-      setProductInvoices(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Fetch invoices error:', error);
-      setProductInvoices([]);
-    } finally {
-      setIsLoadingInvoices(false);
+  const handleViewInvoices = (product: Product) => {
+    if (onViewInvoices) {
+      onViewInvoices(product.id, product.name);
     }
   };
 
@@ -675,7 +655,7 @@ export function ProductsManagement() {
                     </div>
                     <div className="flex gap-2">
                       <Button size="icon" variant="ghost" onClick={() => handleViewInvoices(product)} title="عرض الفواتير">
-                        <FileText className="h-4 w-4 text-blue-500" />
+                        <FileText className="h-4 w-4 text-blue-600" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => handleEdit(product)}>
                         <Edit className="h-4 w-4 text-gray-500" />
@@ -692,64 +672,6 @@ export function ProductsManagement() {
         </div>
       )}
 
-      {/* Product Invoices Dialog */}
-      <Dialog open={showInvoicesDialog} onOpenChange={setShowInvoicesDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              فواتير {selectedProduct?.name}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {isLoadingInvoices ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-            </div>
-          ) : productInvoices.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-              <p className="text-gray-500">لا توجد فواتير لهذا المنتج</p>
-            </div>
-          ) : (
-            <div className="overflow-y-auto flex-1 space-y-3">
-              {productInvoices.map((invoice) => (
-                <Card key={invoice.id} className="shadow-sm">
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-semibold text-sm">{formatYemenDateTime(invoice.createdAt)}</p>
-                        <p className="text-xs text-gray-500">
-                          {invoice.invoiceType === 'cash' ? 'نقدية' : 'آجلة'}
-                          {invoice.customer && ` - ${invoice.customer.name}`}
-                        </p>
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-teal-600">
-                          <CurrencyDisplay amount={invoice.totalAmount} symbolSize={12} />
-                        </p>
-                        <p className="text-xs text-green-600">
-                          ربح: <CurrencyDisplay amount={invoice.totalProfit} symbolSize={10} />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="border-t pt-2">
-                      <p className="text-xs text-gray-500 mb-1">المنتجات:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {invoice.items.map((item) => (
-                          <Badge key={item.id} variant="outline" className="text-xs">
-                            {item.productName} ({item.quantity} {item.unitName})
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

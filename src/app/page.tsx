@@ -12,6 +12,7 @@ import { BottomNav } from '@/components/shared/BottomNav';
 import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
 import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { ProductsManagement } from '@/components/products/ProductsManagement';
+import { ProductInvoices } from '@/components/products/ProductInvoices';
 import { CustomersManagement } from '@/components/customers/CustomersManagement';
 import { InvoicesList } from '@/components/invoices/InvoicesList';
 import { CreateInvoicePage } from '@/components/invoices/CreateInvoicePage';
@@ -46,6 +47,9 @@ export default function App() {
   const { user, isAuthenticated, isLoading, checkAuth, logout } = useAuthStore();
   const [currentView, setCurrentView] = useState('');
   const [initialized, setInitialized] = useState(false);
+  
+  // Product invoices state
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     checkAuth().then(() => setInitialized(true));
@@ -60,11 +64,17 @@ export default function App() {
     setCurrentView('');
   };
 
+  // Handle view product invoices
+  const handleViewProductInvoices = (productId: string, productName: string) => {
+    setSelectedProduct({ id: productId, name: productName });
+    setCurrentView('product-invoices');
+  };
+
   if (isLoading || !initialized) return <LoadingScreen />;
   if (!isAuthenticated) return <LoginPage />;
 
   const isAdmin = user?.role === 'admin';
-  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard', 'inventory', 'inventory-matching'].includes(currentDisplayView);
+  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard', 'inventory', 'inventory-matching', 'product-invoices'].includes(currentDisplayView);
 
   const renderContent = () => {
     switch (currentDisplayView) {
@@ -73,7 +83,15 @@ export default function App() {
       case 'user-dashboard':
         return <UserDashboard setCurrentView={setCurrentView} />;
       case 'products':
-        return <ProductsManagement />;
+        return <ProductsManagement onViewInvoices={handleViewProductInvoices} />;
+      case 'product-invoices':
+        return selectedProduct ? (
+          <ProductInvoices
+            productId={selectedProduct.id}
+            productName={selectedProduct.name}
+            onBack={() => setCurrentView('products')}
+          />
+        ) : null;
       case 'invoices':
         return <InvoicesList isAdmin={isAdmin} />;
       case 'my-sales':
@@ -105,6 +123,8 @@ export default function App() {
         return 'الرئيسية';
       case 'products':
         return 'إدارة المنتجات';
+      case 'product-invoices':
+        return 'فواتير المنتج';
       case 'invoices':
         return 'الفواتير';
       case 'my-sales':
@@ -126,11 +146,14 @@ export default function App() {
     }
   };
 
+  // Check if header should be hidden for product-invoices view
+  const showHeader = currentDisplayView !== 'product-invoices';
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header user={user!} onSettings={() => setCurrentView('settings')} title={getTitle()} />
+      {showHeader && <Header user={user!} onSettings={() => setCurrentView('settings')} title={getTitle()} />}
       <main className="flex-1">{renderContent()}</main>
-      <BottomNav currentView={currentDisplayView} setCurrentView={setCurrentView} isAdmin={isAdmin} />
+      {showHeader && <BottomNav currentView={currentDisplayView} setCurrentView={setCurrentView} isAdmin={isAdmin} />}
       {showFloatingButton && (
         <button
           onClick={() => setCurrentView('new-invoice')}
