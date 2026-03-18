@@ -37,10 +37,10 @@ import {
   Skull,
   Bomb,
   ClipboardList,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
-import { InventoryCheck } from '@/components/inventory/InventoryCheck';
 
 interface UserData {
   id: string;
@@ -52,9 +52,10 @@ interface UserData {
 
 interface SettingsPageProps {
   onLogout: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-export function SettingsPage({ onLogout }: SettingsPageProps) {
+export function SettingsPage({ onLogout, onNavigate }: SettingsPageProps) {
   const { user, setUser } = useAuthStore();
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -367,8 +368,26 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
         </CardContent>
       </Card>
 
-      {/* Inventory Check Section */}
-      <InventoryCheck />
+      {/* Inventory Check Button */}
+      <Card
+        className="shadow-sm border-0 cursor-pointer hover:shadow-md transition-shadow"
+        onClick={() => onNavigate?.('inventory')}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <ClipboardList className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">الجرد</h3>
+                <p className="text-sm text-gray-500">مقارنة المخزون الفعلي مع النظام</p>
+              </div>
+            </div>
+            <ArrowLeft className="h-5 w-5 text-gray-400" />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Users Management (Admin Only) */}
       {isAdmin && (

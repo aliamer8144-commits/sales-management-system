@@ -18,6 +18,7 @@ import { CreateInvoicePage } from '@/components/invoices/CreateInvoicePage';
 import { CreatePurchaseInvoicePage } from '@/components/invoices/CreatePurchaseInvoicePage';
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
+import { InventoryCheck } from '@/components/inventory/InventoryCheck';
 
 // Header Component (small enough to keep here)
 function Header({ user, onSettings, title }: { user: User; onSettings: () => void; title: string }) {
@@ -62,7 +63,7 @@ export default function App() {
   if (!isAuthenticated) return <LoginPage />;
 
   const isAdmin = user?.role === 'admin';
-  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard'].includes(currentDisplayView);
+  const showFloatingButton = !['new-invoice', 'new-purchase-invoice', 'customers', 'reports', 'settings', 'user-dashboard', 'dashboard', 'inventory'].includes(currentDisplayView);
 
   const renderContent = () => {
     switch (currentDisplayView) {
@@ -84,8 +85,10 @@ export default function App() {
         return <CustomersManagement isAdmin={isAdmin} />;
       case 'reports':
         return <ReportsPage />;
+      case 'inventory':
+        return <InventoryCheck />;
       case 'settings':
-        return <SettingsPage onLogout={handleLogout} />;
+        return <SettingsPage onLogout={handleLogout} onNavigate={setCurrentView} />;
       default:
         return isAdmin ? <AdminDashboard setCurrentView={setCurrentView} /> : <UserDashboard setCurrentView={setCurrentView} />;
     }
@@ -111,6 +114,8 @@ export default function App() {
         return 'إدارة العملاء';
       case 'reports':
         return 'التقارير';
+      case 'inventory':
+        return 'الجرد';
       case 'settings':
         return 'الإعدادات';
       default:
