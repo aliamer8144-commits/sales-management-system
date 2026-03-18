@@ -36,9 +36,11 @@ import {
   FileX,
   Skull,
   Bomb,
+  ClipboardList,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
+import { InventoryCheck } from '@/components/inventory/InventoryCheck';
 
 interface UserData {
   id: string;
@@ -364,6 +366,9 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Inventory Check Section */}
+      <InventoryCheck />
 
       {/* Users Management (Admin Only) */}
       {isAdmin && (
