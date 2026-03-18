@@ -110,11 +110,75 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const customerId = searchParams.get('customerId');
+    const productId = searchParams.get('productId');
     const type = searchParams.get('type');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const startDateTime = searchParams.get('startDateTime');
     const endDateTime = searchParams.get('endDateTime');
+    
+    // If productId is provided, we need to filter by invoice items
+    if (productId) {
+      // Get all invoices that have this product
+      const invoicesWithProduct = await db.execute({
+        sql: `
+          SELECT DISTINCT i.*, u.name as userName, u.email as userEmail, c.name as customerName, c.phone as customerPhone
+          FROM Invoice i
+          LEFT JOIN User u ON i.userId = u.id
+          LEFT JOIN Customer c ON i.customerId = c.id
+          INNER JOIN InvoiceItem ii ON i.id = ii.invoiceId
+          WHERE ii.productId = ?
+          ORDER BY i.createdAt DESC
+        `,
+        args: [productId],
+      });
+      
+      // Get items for each invoice
+      const invoices = [];
+      for (const row of invoicesWithProduct.rows) {
+        const itemsResult = await db.execute({
+          sql: `SELECT ii.*, p.name as productName 
+                FROM InvoiceItem ii
+                LEFT JOIN Product p ON ii.productId = p.id
+                WHERE ii.invoiceId = ?`,
+          args: [row.id],
+        });
+        
+        invoices.push({
+          id: row.id,
+          invoiceType: row.invoiceType,
+          totalAmount: row.totalAmount,
+          totalProfit: row.totalProfit,
+          notes: row.notes,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          userId: row.userId,
+          customerId: row.customerId,
+          user: {
+            id: row.userId,
+            name: row.userName,
+            email: row.userEmail,
+          },
+          customer: row.customerId ? {
+            id: row.customerId,
+            name: row.customerName,
+            phone: row.customerPhone,
+          } : null,
+          items: itemsResult.rows.map(item => ({
+            id: item.id,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            salePrice: item.salePrice,
+            purchasePrice: item.purchasePrice,
+            unitType: item.unitType,
+            unitName: item.unitName,
+          })),
+        });
+      }
+      
+      return NextResponse.json(invoices);
+    }
     
     let sql = `
       SELECT i.*, u.name as userName, u.email as userEmail, c.name as customerName, c.phone as customerPhone
