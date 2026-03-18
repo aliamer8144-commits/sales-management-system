@@ -31,9 +31,12 @@ const initialFormData: ProductFormData = {
   cartonPurchasePrice: '',
   cartonSalePrice: '',
   cartonPacketsCount: '',
+  cartonPacketSalePrice: '',
+  cartonPieceSalePrice: '',
   packetPiecesCount: '',
   packetPurchasePrice: '',
   packetSalePrice: '',
+  packetPieceSalePrice: '',
   piecePurchasePrice: '',
   pieceSalePrice: '',
   cartonStock: '',
@@ -81,6 +84,8 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
     if (formData.baseUnitType === 'carton') {
       const cartonPrice = parseFloat(formData.cartonPurchasePrice) || 0;
       const cartonSale = parseFloat(formData.cartonSalePrice) || 0;
+      const packetSale = parseFloat(formData.cartonPacketSalePrice) || 0;
+      const pieceSale = parseFloat(formData.cartonPieceSalePrice) || 0;
       const packetsInCarton = parseInt(formData.cartonPacketsCount) || 1;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
       const totalPieces = packetsInCarton * piecesInPacket;
@@ -89,7 +94,7 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         unitType: 'carton',
         unitName: 'كرتون',
         purchasePrice: cartonPrice,
-        salePrice: cartonSale,
+        salePrice: cartonSale || undefined,
         containsPieces: totalPieces,
         stockQuantity: parseInt(formData.cartonStock) || 0,
       });
@@ -97,7 +102,7 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         unitType: 'packet',
         unitName: 'باكت',
         purchasePrice: cartonPrice / packetsInCarton,
-        salePrice: cartonSale ? cartonSale / packetsInCarton : 0,
+        salePrice: packetSale || undefined,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
@@ -105,20 +110,21 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: cartonPrice / totalPieces,
-        salePrice: cartonSale ? cartonSale / totalPieces : 0,
+        salePrice: pieceSale || undefined,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
     } else if (formData.baseUnitType === 'packet') {
       const packetPrice = parseFloat(formData.packetPurchasePrice) || 0;
       const packetSale = parseFloat(formData.packetSalePrice) || 0;
+      const pieceSale = parseFloat(formData.packetPieceSalePrice) || 0;
       const piecesInPacket = parseInt(formData.packetPiecesCount) || 1;
 
       units.push({
         unitType: 'packet',
         unitName: 'باكت',
         purchasePrice: packetPrice,
-        salePrice: packetSale,
+        salePrice: packetSale || undefined,
         containsPieces: piecesInPacket,
         stockQuantity: parseInt(formData.packetStock) || 0,
       });
@@ -126,7 +132,7 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: packetPrice / piecesInPacket,
-        salePrice: packetSale ? packetSale / piecesInPacket : 0,
+        salePrice: pieceSale || undefined,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
@@ -135,7 +141,7 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         unitType: 'piece',
         unitName: 'قطعة',
         purchasePrice: parseFloat(formData.piecePurchasePrice) || 0,
-        salePrice: parseFloat(formData.pieceSalePrice) || 0,
+        salePrice: parseFloat(formData.pieceSalePrice) || undefined,
         containsPieces: 1,
         stockQuantity: parseInt(formData.pieceStock) || 0,
       });
@@ -212,9 +218,12 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
         cartonUnit && packetUnit
           ? (cartonUnit.containsPieces / packetUnit.containsPieces).toString()
           : '',
+      cartonPacketSalePrice: packetUnit?.salePrice?.toString() || '',
+      cartonPieceSalePrice: pieceUnit?.salePrice?.toString() || '',
       packetPiecesCount: packetUnit?.containsPieces.toString() || '',
       packetPurchasePrice: packetUnit?.purchasePrice.toString() || '',
       packetSalePrice: packetUnit?.salePrice?.toString() || '',
+      packetPieceSalePrice: pieceUnit?.salePrice?.toString() || '',
       piecePurchasePrice: pieceUnit?.purchasePrice.toString() || '',
       pieceSalePrice: pieceUnit?.salePrice?.toString() || '',
       cartonStock: cartonUnit?.stockQuantity.toString() || '',
@@ -329,106 +338,178 @@ export function ProductsManagement({ onViewInvoices }: ProductsManagementProps) 
 
                 {/* Carton Fields */}
                 {formData.baseUnitType === 'carton' && (
-                  <div className="space-y-3 p-3 bg-teal-50 rounded-lg">
-                    <h4 className="font-semibold text-teal-800">بيانات الكرتون</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">سعر شراء الكرتون *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.cartonPurchasePrice}
-                          onChange={(e) => setFormData({ ...formData, cartonPurchasePrice: e.target.value })}
-                          required
-                          className="h-10"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">سعر بيع الكرتون</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.cartonSalePrice}
-                          onChange={(e) => setFormData({ ...formData, cartonSalePrice: e.target.value })}
-                          className="h-10"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">عدد البواكت في الكرتون *</Label>
-                        <Input
-                          type="number"
-                          value={formData.cartonPacketsCount}
-                          onChange={(e) => setFormData({ ...formData, cartonPacketsCount: e.target.value })}
-                          required
-                          className="h-10"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">عدد القطع في الباكت *</Label>
-                        <Input
-                          type="number"
-                          value={formData.packetPiecesCount}
-                          onChange={(e) => setFormData({ ...formData, packetPiecesCount: e.target.value })}
-                          required
-                          className="h-10"
-                        />
+                  <div className="space-y-4">
+                    {/* Carton Info */}
+                    <div className="p-3 bg-teal-50 rounded-lg">
+                      <h4 className="font-semibold text-teal-800 mb-3">بيانات الكرتون</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">سعر شراء الكرتون *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.cartonPurchasePrice}
+                            onChange={(e) => setFormData({ ...formData, cartonPurchasePrice: e.target.value })}
+                            required
+                            className="h-10"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر بيع الكرتون</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.cartonSalePrice}
+                            onChange={(e) => setFormData({ ...formData, cartonSalePrice: e.target.value })}
+                            className="h-10"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">عدد البواكت في الكرتون *</Label>
+                          <Input
+                            type="number"
+                            value={formData.cartonPacketsCount}
+                            onChange={(e) => setFormData({ ...formData, cartonPacketsCount: e.target.value })}
+                            required
+                            className="h-10"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">عدد القطع في الباكت *</Label>
+                          <Input
+                            type="number"
+                            value={formData.packetPiecesCount}
+                            onChange={(e) => setFormData({ ...formData, packetPiecesCount: e.target.value })}
+                            required
+                            className="h-10"
+                          />
+                        </div>
                       </div>
                     </div>
-                    {calcPacketPrice && (
-                      <p className="text-sm text-teal-700">
-                        سعر الباكت المحسوب: <strong>{calcPacketPrice} ﷼</strong>
-                      </p>
-                    )}
-                    {calcPiecePrice && (
-                      <p className="text-sm text-teal-700">
-                        سعر القطعة المحسوب: <strong>{calcPiecePrice} ﷼</strong>
-                      </p>
-                    )}
+
+                    {/* Packet Sale Price */}
+                    <div className="p-3 bg-emerald-50 rounded-lg">
+                      <h4 className="font-semibold text-emerald-800 mb-3">بيانات الباكت</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">سعر شراء الباكت (محسوب)</Label>
+                          <Input
+                            type="number"
+                            value={calcPacketPrice || ''}
+                            disabled
+                            className="h-10 bg-gray-100"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر بيع الباكت</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.cartonPacketSalePrice}
+                            onChange={(e) => setFormData({ ...formData, cartonPacketSalePrice: e.target.value })}
+                            className="h-10"
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Piece Sale Price */}
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold text-gray-800 mb-3">بيانات القطعة</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">سعر شراء القطعة (محسوب)</Label>
+                          <Input
+                            type="number"
+                            value={calcPiecePrice || ''}
+                            disabled
+                            className="h-10 bg-gray-100"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر بيع القطعة</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.cartonPieceSalePrice}
+                            onChange={(e) => setFormData({ ...formData, cartonPieceSalePrice: e.target.value })}
+                            className="h-10"
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {/* Packet Fields */}
                 {formData.baseUnitType === 'packet' && (
-                  <div className="space-y-3 p-3 bg-emerald-50 rounded-lg">
-                    <h4 className="font-semibold text-emerald-800">بيانات الباكت</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">سعر شراء الباكت *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.packetPurchasePrice}
-                          onChange={(e) => setFormData({ ...formData, packetPurchasePrice: e.target.value })}
-                          required
-                          className="h-10"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">سعر بيع الباكت</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.packetSalePrice}
-                          onChange={(e) => setFormData({ ...formData, packetSalePrice: e.target.value })}
-                          className="h-10"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">عدد القطع في الباكت *</Label>
-                        <Input
-                          type="number"
-                          value={formData.packetPiecesCount}
-                          onChange={(e) => setFormData({ ...formData, packetPiecesCount: e.target.value })}
-                          required
-                          className="h-10"
-                        />
+                  <div className="space-y-4">
+                    {/* Packet Info */}
+                    <div className="p-3 bg-emerald-50 rounded-lg">
+                      <h4 className="font-semibold text-emerald-800 mb-3">بيانات الباكت</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">سعر شراء الباكت *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.packetPurchasePrice}
+                            onChange={(e) => setFormData({ ...formData, packetPurchasePrice: e.target.value })}
+                            required
+                            className="h-10"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر بيع الباكت</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.packetSalePrice}
+                            onChange={(e) => setFormData({ ...formData, packetSalePrice: e.target.value })}
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">عدد القطع في الباكت *</Label>
+                          <Input
+                            type="number"
+                            value={formData.packetPiecesCount}
+                            onChange={(e) => setFormData({ ...formData, packetPiecesCount: e.target.value })}
+                            required
+                            className="h-10"
+                          />
+                        </div>
                       </div>
                     </div>
-                    {calcPiecePrice && (
-                      <p className="text-sm text-emerald-700">
-                        سعر القطعة المحسوب: <strong>{calcPiecePrice} ﷼</strong>
-                      </p>
-                    )}
+
+                    {/* Piece Sale Price */}
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold text-gray-800 mb-3">بيانات القطعة</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">سعر شراء القطعة (محسوب)</Label>
+                          <Input
+                            type="number"
+                            value={calcPiecePrice || ''}
+                            disabled
+                            className="h-10 bg-gray-100"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر بيع القطعة</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.packetPieceSalePrice}
+                            onChange={(e) => setFormData({ ...formData, packetPieceSalePrice: e.target.value })}
+                            className="h-10"
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 

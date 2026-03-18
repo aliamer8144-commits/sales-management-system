@@ -76,14 +76,24 @@ export interface ProductFormData {
   alertUnitType: 'carton' | 'packet' | 'piece';
   notes: string;
   baseUnitType: 'carton' | 'packet' | 'piece';
+  // Carton prices (when base is carton)
   cartonPurchasePrice: string;
   cartonSalePrice: string;
   cartonPacketsCount: string;
+  // Packet prices when it's inside carton
+  cartonPacketSalePrice: string; // سعر بيع الباكت (في حالة الكرتون)
+  // Piece prices when it's inside carton
+  cartonPieceSalePrice: string; // سعر بيع القطعة (في حالة الكرتون)
+  // Packet as base unit
   packetPiecesCount: string;
   packetPurchasePrice: string;
   packetSalePrice: string;
+  // Piece prices when it's inside packet (as base)
+  packetPieceSalePrice: string; // سعر بيع القطعة (في حالة الباكت كوحدة أساسية)
+  // Piece as base unit
   piecePurchasePrice: string;
   pieceSalePrice: string;
+  // Stock
   cartonStock: string;
   packetStock: string;
   pieceStock: string;
